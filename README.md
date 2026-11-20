@@ -1,7 +1,5 @@
 # task-journal
 
-Lightweight daily task tracker with weekly PDF reports, JSON storage, and AI-powered writing assistance.
-
 Requires **PHP 8.1+**. No `npm install` or `composer install` needed.
 
 ## Install PHP
