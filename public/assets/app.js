@@ -2,7 +2,23 @@
 
 const $ = (selector, root = document) => root.querySelector(selector);
 let categories = [];
-let categoryButtonColors = { Todas: 'btn-neutral' };
+const categoryPalette = {
+    neutral: { button: 'btn-neutral', badge: 'badge-neutral', text: 'text-base-content/70' },
+    info: { button: 'btn-info', badge: 'badge-info', text: 'text-info' },
+    error: { button: 'btn-error', badge: 'badge-error', text: 'text-error' },
+    warning: { button: 'btn-warning', badge: 'badge-warning', text: 'text-warning' },
+    success: { button: 'btn-success', badge: 'badge-success', text: 'text-success' },
+    secondary: { button: 'btn-secondary', badge: 'badge-secondary', text: 'text-secondary' },
+    accent: { button: 'btn-accent', badge: 'badge-accent', text: 'text-accent' },
+    orange: { button: 'border-orange-600 bg-orange-600 text-white hover:bg-orange-700', badge: 'border-orange-600 bg-orange-600 text-white', text: 'text-orange-600' },
+    violet: { button: 'border-violet-500 bg-violet-500 text-white hover:bg-violet-600', badge: 'border-violet-500 bg-violet-500 text-white', text: 'text-violet-500' },
+    purple: { button: 'border-fuchsia-600 bg-fuchsia-600 text-white hover:bg-fuchsia-700', badge: 'border-fuchsia-600 bg-fuchsia-600 text-white', text: 'text-fuchsia-600' },
+    indigo: { button: 'border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700', badge: 'border-indigo-600 bg-indigo-600 text-white', text: 'text-indigo-500' },
+    lime: { button: 'border-lime-500 bg-lime-500 text-lime-950 hover:bg-lime-600', badge: 'border-lime-500 bg-lime-500 text-lime-950', text: 'text-lime-600' },
+    emerald: { button: 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700', badge: 'border-emerald-600 bg-emerald-600 text-white', text: 'text-emerald-600' },
+    cyan: { button: 'border-cyan-500 bg-cyan-500 text-cyan-950 hover:bg-cyan-600', badge: 'border-cyan-500 bg-cyan-500 text-cyan-950', text: 'text-cyan-600' },
+    brown: { button: 'border-amber-800 bg-amber-800 text-white hover:bg-amber-900', badge: 'border-amber-800 bg-amber-800 text-white', text: 'text-amber-700' },
+};
 const state = { data: null, week: monday(new Date()), category: 'Todas', search: '', view: 'week', saving: false, deleteId: null, reportReady: false };
 const csrf = $('meta[name="csrf-token"]').content;
 let toastTimer;
@@ -81,7 +97,7 @@ function toast(message, error = false) {
     const region = $('#toast-region');
     region.replaceChildren();
     const item = document.createElement('div');
-    item.className = `toast-message${error ? ' error' : ''}`;
+    item.className = `alert text-sm ${error ? 'alert-error' : 'alert-success'}`;
     item.textContent = message;
     region.append(item);
     toastTimer = setTimeout(() => region.replaceChildren(), 4500);
@@ -89,8 +105,9 @@ function toast(message, error = false) {
 
 function storageStatus(text, error = false) {
     const status = $('#storage-status');
-    status.classList.toggle('error', error);
-    status.replaceChildren(document.createElement('span'), document.createTextNode(text));
+    status.classList.toggle('text-error', error);
+    status.classList.toggle('text-base-content/60', !error);
+    status.textContent = text;
 }
 
 async function request(input) {
@@ -134,16 +151,13 @@ async function save(input, form, errorTarget) {
     }
 }
 
-function categoryColorToken(category) {
-    return `--color-${(categoryButtonColors[category] || 'btn-neutral').replace('btn-', '')}`;
+function categoryClasses(name, component = 'text') {
+    const color = state.data.categories.find(category => category.name === name)?.color || 'neutral';
+    return (categoryPalette[color] || categoryPalette.neutral)[component];
 }
 
 function renderCategories() {
     categories = state.data.categories.map(category => category.name);
-    categoryButtonColors = Object.fromEntries([
-        ['Todas', 'btn-neutral'],
-        ...state.data.categories.map(category => [category.name, `btn-${category.color}`]),
-    ]);
     if (state.category !== 'Todas' && !categories.includes(state.category)) state.category = 'Todas';
     const select = $('#task-category');
     const selected = select.value;
@@ -151,17 +165,13 @@ function renderCategories() {
     if (categories.includes(selected)) select.value = selected;
     $('#categories-list').innerHTML = categories.map(name => {
         const count = state.data.tasks.filter(task => task.category === name).length;
-        const token = categoryColorToken(name);
-        return `<div class="category-row"><div><span class="badge" style="background:var(${token});color:var(${token}-content)">${escapeHtml(name)}</span><span class="category-usage">${count} ${count === 1 ? 'tarea' : 'tareas'}</span></div><div class="category-actions"><button class="btn btn-xs category-edit-button" type="button" data-edit-category="${escapeHtml(name)}" aria-label="Editar categoría ${escapeHtml(name)}">Editar</button><button class="btn btn-xs btn-error category-delete-button" type="button" data-delete-category="${escapeHtml(name)}" aria-label="Eliminar categoría ${escapeHtml(name)}">Eliminar</button></div></div>`;
+        return `<div class="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 py-3"><div class="flex min-w-0 flex-wrap items-center gap-2"><span class="badge h-auto whitespace-normal break-words ${categoryClasses(name, 'badge')}">${escapeHtml(name)}</span><span class="text-xs text-base-content/60">${count} ${count === 1 ? 'tarea' : 'tareas'}</span></div><div class="flex shrink-0 gap-2"><button class="btn btn-xs" type="button" data-edit-category="${escapeHtml(name)}" aria-label="Editar categoría ${escapeHtml(name)}">Editar</button><button class="btn btn-xs btn-error" type="button" data-delete-category="${escapeHtml(name)}" aria-label="Eliminar categoría ${escapeHtml(name)}">Eliminar</button></div></div>`;
     }).join('');
 }
 
 function renderProfile() {
     const { profile } = state.data;
-    $('#sidebar-name').textContent = profile.name;
-    $('#sidebar-area').textContent = profile.area;
-    $('#avatar-initials').textContent = profile.name.split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase();
-    $('.app-footer>span:last-child').textContent = `Bitácora · ${profile.name}`;
+    $('#footer-profile').textContent = `Bitácora · ${profile.name}`;
 }
 
 function render() {
@@ -176,7 +186,7 @@ function renderWeek() {
     const tasks = tasksOfWeek();
     $('#week-range').textContent = weekRange(state.week);
     $('#activity-count').textContent = tasks.length;
-    $('#category-filters').innerHTML = ['Todas', ...categories].map(category => `<button class="btn btn-sm filter-chip ${categoryButtonColors[category]}" data-filter="${escapeHtml(category)}" aria-pressed="${state.category === category}">${escapeHtml(category)}</button>`).join('');
+    $('#category-filters').innerHTML = ['Todas', ...categories].map(category => `<button class="btn btn-sm ${category === 'Todas' ? 'btn-neutral' : categoryClasses(category, 'button')} ${state.category === category ? 'outline-2 outline-offset-2 outline-current' : ''}" data-filter="${escapeHtml(category)}" aria-pressed="${state.category === category}">${escapeHtml(category)}</button>`).join('');
     const visible = tasks.filter(task => (state.category === 'Todas' || task.category === state.category)
         && normalize(`${task.title} ${task.description} ${task.category}`).includes(normalize(state.search)));
     const filtered = state.category !== 'Todas' || Boolean(state.search);
@@ -189,16 +199,16 @@ function renderWeek() {
         const dayTasks = visible.filter(task => task.date === key);
         if (filtered && !dayTasks.length) continue;
         const today = key === todayKey;
-        sections.push(`<details class="day-section"${today ? ' open' : ''}>
-            <summary class="day-heading"><span class="day-number">${date.getDate()}</span><div><h3>${escapeHtml(capitalize(formatDate(date, { weekday: 'long' })))}</h3><small>${escapeHtml(formatDate(date, { month: 'long', year: 'numeric' }))}</small></div>${today ? '<span class="today-badge">HOY</span>' : ''}<span class="day-count">${dayTasks.length} ${dayTasks.length === 1 ? 'tarea' : 'tareas'}</span><button class="day-add" data-add-date="${key}" title="Añadir tarea" aria-label="Añadir tarea el ${escapeHtml(formatDate(date, { day: 'numeric', month: 'long' }))}">＋</button></summary>
-            ${dayTasks.length ? dayTasks.map(taskMarkup).join('') : `<div class="empty-day"><span>Sin tareas.</span><button data-add-date="${key}">＋ Registrar tarea</button></div>`}
+        sections.push(`<details class="collapse collapse-arrow border border-base-300 bg-base-100"${today ? ' open' : ''}>
+            <summary class="collapse-title flex flex-wrap items-center gap-3 text-sm"><span class="badge badge-neutral">${date.getDate()}</span><span><span class="block font-medium">${escapeHtml(capitalize(formatDate(date, { weekday: 'long' })))}</span><span class="block text-xs text-base-content/60">${escapeHtml(formatDate(date, { month: 'long', year: 'numeric' }))}</span></span>${today ? '<span class="badge badge-primary badge-sm">HOY</span>' : ''}<span class="ml-auto text-xs text-base-content/60">${dayTasks.length} ${dayTasks.length === 1 ? 'tarea' : 'tareas'}</span><button class="btn btn-ghost btn-square btn-xs" data-add-date="${key}" title="Añadir tarea" aria-label="Añadir tarea el ${escapeHtml(formatDate(date, { day: 'numeric', month: 'long' }))}">＋</button></summary>
+            <div class="collapse-content text-sm">${dayTasks.length ? dayTasks.map(taskMarkup).join('') : `<div class="flex flex-wrap items-center justify-between gap-3 py-4 text-base-content/60"><span>Sin tareas.</span><button class="btn btn-ghost btn-sm" data-add-date="${key}">＋ Registrar tarea</button></div>`}</div>
         </details>`);
     }
-    $('#task-list').innerHTML = sections.length ? sections.join('') : '<div class="empty-results"><h3>No encontramos tareas</h3><p>Prueba otra palabra o categoría.</p><button class="btn" data-clear-filters>Limpiar filtros</button></div>';
+    $('#task-list').innerHTML = sections.length ? sections.join('') : '<div class="card items-center gap-3 border border-base-300 bg-base-100 p-8 text-center"><h3 class="font-medium">No encontramos tareas</h3><p class="text-base-content/60">Prueba otra palabra o categoría.</p><button class="btn btn-sm" data-clear-filters>Limpiar filtros</button></div>';
 }
 
 function taskMarkup(task) {
-    return `<article class="task-card" data-category="${escapeHtml(task.category)}" style="--task-color:var(${categoryColorToken(task.category)})"><span class="task-check" aria-label="Tarea realizada">✓</span><div class="task-content"><h4 class="task-title">${escapeHtml(task.title)}</h4>${task.description ? `<p class="task-description">${escapeHtml(task.description)}</p>` : ''}<div class="task-meta"><span class="category-tag" data-category="${escapeHtml(task.category)}">${escapeHtml(task.category)}</span></div></div><div class="task-actions"><button class="btn btn-xs btn-warning task-action" data-edit="${escapeHtml(task.id)}" title="Editar tarea" aria-label="Editar: ${escapeHtml(task.title)}">✎</button><button class="btn btn-xs btn-error task-action delete" data-delete="${escapeHtml(task.id)}" title="Eliminar tarea" aria-label="Eliminar: ${escapeHtml(task.title)}">×</button></div></article>`;
+    return `<article class="flex items-start gap-3 border-b border-base-300 py-4 last:border-b-0"><span class="mt-1 text-success" aria-label="Tarea realizada">✓</span><div class="min-w-0 flex-1"><h4 class="whitespace-pre-wrap break-words font-normal">${escapeHtml(task.title)}</h4>${task.description ? `<p class="mt-1 whitespace-pre-wrap break-words text-base-content/60">${escapeHtml(task.description)}</p>` : ''}<span class="badge badge-sm mt-2 h-auto whitespace-normal break-words ${categoryClasses(task.category, 'badge')}">${escapeHtml(task.category)}</span></div><div class="flex shrink-0 gap-2"><button class="btn btn-xs btn-warning" data-edit="${escapeHtml(task.id)}" title="Editar tarea" aria-label="Editar: ${escapeHtml(task.title)}">✎</button><button class="btn btn-xs btn-error" data-delete="${escapeHtml(task.id)}" title="Eliminar tarea" aria-label="Eliminar: ${escapeHtml(task.title)}">×</button></div></article>`;
 }
 
 function renderHistory() {
@@ -209,7 +219,7 @@ function renderHistory() {
         const key = dateKey(monday(localDate(task.date)));
         weeks.set(key, (weeks.get(key) || 0) + 1);
     }
-    $('#history-list').innerHTML = [...weeks.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([date, count]) => `<button class="history-card" data-week="${date}"><strong>${escapeHtml(weekRange(localDate(date)))}${date === currentWeek ? ' <span class="badge badge-success history-status">En curso</span>' : ''}</strong><small>${count} ${count === 1 ? 'tarea registrada' : 'tareas registradas'}<span class="history-arrow">Ver semana →</span></small></button>`).join('') || '<div class="empty-results"><h3>Tu historia empieza aquí</h3><p>Registra una tarea para crear tu primera semana.</p></div>';
+    $('#history-list').innerHTML = [...weeks.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([date, count]) => `<button class="card gap-3 border border-base-300 bg-base-100 p-4 text-left hover:bg-base-200" data-week="${date}"><span class="flex flex-wrap items-center gap-2 font-medium">${escapeHtml(weekRange(localDate(date)))}${date === currentWeek ? ' <span class="badge badge-success badge-sm">En curso</span>' : ''}</span><span class="flex w-full flex-wrap justify-between gap-3 text-xs text-base-content/60">${count} ${count === 1 ? 'tarea registrada' : 'tareas registradas'}<span>Ver semana →</span></span></button>`).join('') || '<div class="card gap-3 border border-base-300 bg-base-100 p-8 text-center"><h3 class="font-medium">Tu historia empieza aquí</h3><p class="text-base-content/60">Registra una tarea para crear tu primera semana.</p></div>';
 }
 
 function showView(view) {
@@ -217,8 +227,8 @@ function showView(view) {
     $('#week-view').hidden = view !== 'week';
     $('#history-view').hidden = view !== 'history';
     $('#export-pdf').hidden = view !== 'week';
-    $('#nav-week').classList.toggle('active', view === 'week');
-    $('#nav-history').classList.toggle('active', view === 'history');
+    $('#nav-week').classList.toggle('menu-active', view === 'week');
+    $('#nav-history').classList.toggle('menu-active', view === 'history');
     $('#page-title').textContent = view === 'week' ? 'Reporte semanal' : 'Historial de reportes';
     $('#page-description').textContent = view === 'week' ? '' : 'Consulta tus semanas anteriores.';
     $('#page-description').hidden = view === 'week';
@@ -341,7 +351,6 @@ $('#next-week').addEventListener('click', () => changeWeek(addDays(state.week, 7
 $('#current-week').addEventListener('click', () => changeWeek(new Date()));
 $('#nav-week').addEventListener('click', () => showView('week'));
 $('#nav-history').addEventListener('click', () => showView('history'));
-$('#nav-profile').addEventListener('click', openProfile);
 function resetCategoryForm() {
     $('#category-form').reset();
     $('#category-form').elements.originalName.value = '';
@@ -461,7 +470,7 @@ $('#task-list').addEventListener('click', event => {
     }
 });
 document.addEventListener('click', event => {
-    const button = event.target.closest('.close-dialog');
+    const button = event.target.closest('[data-close-dialog]');
     if (button && !state.saving) button.closest('dialog').close();
 });
 document.querySelectorAll('dialog').forEach(dialog => {
@@ -521,7 +530,6 @@ $('#nav-import').addEventListener('click', () => {
     updateImportButton();
     $('#import-dialog').showModal();
 });
-$('#import-backup-current').addEventListener('click', () => $('#backup-button').click());
 $('#import-confirm').addEventListener('change', updateImportButton);
 $('#import-file').addEventListener('change', async event => {
     const input = event.currentTarget;
@@ -567,58 +575,94 @@ $('#import-form').addEventListener('submit', async event => {
 });
 
 // The report uses native browser printing: no PDF library or external data service.
-const reportCss = `
-    *{box-sizing:border-box}html,body{margin:0;padding:0;background:#ededed;color:#262626;font:14px Arial,Helvetica,sans-serif}
-    .sheet{width:210mm;height:297mm;background:#fff;margin:20px auto;padding:15mm 17mm 12mm;display:flex;flex-direction:column;break-after:page;overflow:hidden}
-    .report-header{flex:none;display:flex;justify-content:space-between;gap:20px;border-top:4px solid #b83232;padding-top:12px;padding-bottom:14px;border-bottom:1px solid #d4d4d4;margin-bottom:14px}
-    .monogram,.overline{display:none}
-    h1{font-size:14px;line-height:1.5;margin:0 0 7px;font-weight:600;color:#a52b2b}
-    .range{font-size:14px;color:#737373;margin:0}
-    .author{text-align:right;padding-top:4px;max-width:250px;overflow-wrap:anywhere}
-    .author strong{display:block;font-size:14px;margin-bottom:4px;font-weight:600}
-    .author span{display:block;font-size:14px;color:#737373;line-height:1.5}
-    .summary{display:flex;flex-wrap:wrap;gap:8px 20px;flex:none;margin-bottom:16px;padding:9px 12px;background:#fff8dc;border-left:4px solid #cadb62;font-size:14px;color:#525252}
-    .summary-total{flex-basis:100%}
-    .summary strong{font-size:14px;color:#171717;margin-right:5px;font-weight:600}
-    .summary-category{color:var(--category-color)}
-    .summary-category strong{color:inherit}
-    .summary span{font-size:14px}
-    .summary-note{display:none}
-    .report-body{flex:1;min-height:0;overflow:visible;font-size:var(--task-size);line-height:1.45}
-    .day-heading{display:flex;align-items:center;gap:9px;background:#fff8dc;border-bottom:1px solid #eee3b6;padding:7px 9px;margin:0 0 7px}
-    .day-heading:not(:first-child){margin-top:9px}
-    .day-heading .number{min-width:28px;padding:4px;background:#e4ed9b;color:#171717;text-align:center;font-weight:600;font-size:14px}
-    .day-heading strong{font-size:14px;display:block;font-weight:600;color:#171717}
-    .day-heading small{display:block;font-size:14px;color:#737373;margin-top:2px}
-    .day-heading .day-total{margin-left:auto;color:#737373;font-size:14px}
-    .report-task{padding:0 0 7px 13px;position:relative;overflow-wrap:anywhere}
-    .report-task:before{content:"";position:absolute;left:1px;top:6px;width:3px;height:3px;background:#b83232;border-radius:50%}
-    .report-task p{margin:0;white-space:pre-wrap}
-    .report-task .task-title{font-weight:400;color:#171717}
-    .report-task .task-detail{color:#737373;font-size:inherit;margin-top:2px}
-    .report-task .task-category{display:inline-block;margin-left:6px;padding:1px 5px;border:1px solid currentColor;border-radius:3px;color:var(--category-color);font-size:.9em;line-height:1.3;white-space:nowrap}
-    .report-empty{font-size:14px;color:#737373;margin:0;padding:0 0 8px 13px}
-    .report-footer{flex:none;border-top:1px solid #e5e5e5;margin-top:13px;padding-top:10px;display:flex;justify-content:space-between;gap:15px;font-size:14px;color:#737373}
-    .report-footer>span:first-child{max-width:80%;overflow-wrap:anywhere}
-    .report-footer b{color:#262626;font-weight:400}
-    @page{size:A4 portrait;margin:0}
-    @media print{html,body{width:210mm;background:#fff}#report-pages{zoom:1!important}.sheet{margin:0;box-shadow:none;print-color-adjust:exact;-webkit-print-color-adjust:exact;break-after:page;page-break-after:always}.sheet:last-child{break-after:auto;page-break-after:auto}}
-`;
+const reportClasses = {
+    document: 'm-0 bg-neutral-200 p-0 font-sans text-sm text-neutral-800 print:bg-white',
+    pages: 'zoom-100 print:zoom-100',
+    sheet: 'mx-auto my-5 flex h-[297mm] w-[210mm] flex-col overflow-hidden bg-white px-[17mm] pt-[15mm] pb-[12mm] break-after-page last:break-after-auto print:m-0 print:[print-color-adjust:exact]',
+    header: 'mb-3.5 flex shrink-0 justify-between gap-5 border-t-4 border-b border-t-red-700 border-b-neutral-300 pt-3 pb-3.5',
+    headerIntro: 'flex min-w-0 items-center gap-4',
+    logo: 'h-20 w-32 shrink-0 object-contain',
+    title: 'mb-2 text-sm font-semibold text-red-800',
+    muted: 'text-sm text-neutral-500',
+    author: 'max-w-64 pt-1 text-right break-words',
+    authorName: 'mb-1 block text-sm font-semibold',
+    authorDetail: 'block text-sm leading-relaxed text-neutral-500',
+    summary: 'mb-4 flex shrink-0 flex-wrap gap-x-5 gap-y-2 border-l-4 border-l-lime-400 bg-amber-50 px-3 py-2 text-sm',
+    total: 'basis-full',
+    count: 'mr-1 font-semibold',
+    body: 'min-h-0 flex-1 leading-[1.45]',
+    heading: 'mt-2 mb-2 flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-2 py-2 first:mt-0',
+    dayNumber: 'badge badge-soft badge-success rounded-sm text-sm font-semibold',
+    dayName: 'block text-sm font-semibold',
+    dayDate: 'mt-0.5 block text-sm text-neutral-500',
+    dayTotal: 'ml-auto text-sm text-neutral-500',
+    task: 'relative pb-[7px] pl-[13px] break-words before:absolute before:top-1.5 before:left-px before:size-[3px] before:rounded-full before:bg-red-700',
+    taskTitle: 'm-0 whitespace-pre-wrap font-normal text-neutral-900',
+    taskDetail: 'mt-0.5 whitespace-pre-wrap text-neutral-500',
+    label: 'badge badge-outline ml-1 h-auto rounded-sm px-1 py-0 align-baseline text-[0.9em] leading-snug whitespace-nowrap',
+    fragment: 'm-0 whitespace-pre-wrap',
+    empty: 'pb-2 pl-3 text-sm text-neutral-500',
+    footer: 'mt-3 flex shrink-0 justify-between gap-4 border-t border-neutral-200 pt-2.5 text-sm text-neutral-500',
+    signature: 'max-w-4/5 break-words',
+    pageCount: 'shrink-0',
+};
+const reportSizes = ['text-[10.2pt]', 'text-[9.6pt]', 'text-[9pt]'];
+const previewZooms = ['zoom-25', 'zoom-50', 'zoom-75', 'zoom-100'];
+let reportGeneration = 0;
 
-function reportHeader(profile) {
-    const initials = profile.name.split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase();
-    return `<header class="report-header"><div><div class="monogram">${escapeHtml(initials)}</div><p class="overline">BITÁCORA DE ACTIVIDADES</p><h1>Reporte semanal</h1><p class="range">${escapeHtml(weekRange(state.week))}</p></div><div class="author"><strong>${escapeHtml(profile.name)}</strong><span>${escapeHtml(profile.role)}</span><span>${escapeHtml(profile.area)}</span></div></header>`;
+async function prepareReportStyles() {
+    let source = $('#report-utilities');
+    if (!source) {
+        source = document.createElement('div');
+        source.id = 'report-utilities';
+        source.hidden = true;
+        source.className = [
+            'min-w-[211mm]', ...Object.values(reportClasses), ...reportSizes, ...previewZooms,
+            ...Object.values(categoryPalette).flatMap(palette => Object.values(palette)),
+        ].join(' ');
+        document.body.append(source);
+    }
+    // Wait for Tailwind's CDN compiler before measuring or copying its generated styles.
+    const started = performance.now();
+    while (parseFloat(getComputedStyle(source).minWidth) < 790 || !getComputedStyle(source).minWidth.endsWith('px')) {
+        if (performance.now() - started > 10000) throw new Error('No se pudo cargar Tailwind.');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+    }
 }
 
-function buildReport() {
+function reportHeader(profile) {
+    const logo = new URL('assets/logo.png', document.baseURI).href;
+    return `<header class="${reportClasses.header}"><div class="${reportClasses.headerIntro}"><img class="${reportClasses.logo}" src="${escapeHtml(logo)}" alt="Corpo Sistemas" width="128" height="80"><div><h1 class="${reportClasses.title}">Reporte semanal</h1><p class="${reportClasses.muted}">${escapeHtml(weekRange(state.week))}</p></div></div><div class="${reportClasses.author}"><strong class="${reportClasses.authorName}">${escapeHtml(profile.name)}</strong><span class="${reportClasses.authorDetail}">${escapeHtml(profile.role)}</span><span class="${reportClasses.authorDetail}">${escapeHtml(profile.area)}</span></div></header>`;
+}
+
+async function buildReport() {
+    const generation = ++reportGeneration;
     const tasks = tasksOfWeek();
     const frame = $('#report-frame');
     state.reportReady = false;
     $('#print-report').disabled = true;
+    $('#report-instructions').textContent = 'Preparando el reporte…';
+    await prepareReportStyles();
+    if (generation !== reportGeneration) return;
     const doc = frame.contentDocument;
     doc.open();
-    doc.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(`Reporte semanal - ${state.data.profile.name} - ${dateKey(state.week)}`)}</title><style>${reportCss}</style></head><body><main id="report-pages"></main></body></html>`);
+    doc.write(`<!doctype html><html lang="es" data-theme="light"><head><meta charset="utf-8"><title>${escapeHtml(`Reporte semanal - ${state.data.profile.name} - ${dateKey(state.week)}`)}</title></head><body class="${reportClasses.document}"><main class="${reportClasses.pages}" id="report-pages"></main></body></html>`);
     doc.close();
+    const stylesLoaded = [...document.querySelectorAll('link[rel="stylesheet"]')].map(link => new Promise((resolve, reject) => {
+        const copy = link.cloneNode();
+        copy.addEventListener('load', resolve, { once: true });
+        copy.addEventListener('error', reject, { once: true });
+        doc.head.append(copy);
+    }));
+    // Reuse generated Tailwind utilities; the report needs no custom stylesheet or runtime.
+    for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) {
+        if (sheet.href) continue;
+        const style = doc.createElement('style');
+        style.textContent = [...sheet.cssRules].map(rule => rule.cssText).join('\n');
+        doc.head.append(style);
+    }
+    await Promise.all(stylesLoaded);
+    if (generation !== reportGeneration) return;
     const pagesRoot = doc.getElementById('report-pages');
     const profile = state.data.profile;
     const includeEmpty = $('#include-empty-days').checked;
@@ -631,43 +675,43 @@ function buildReport() {
     const categoryCounts = categories.map(category => ({
         category,
         count: tasks.filter(task => task.category === category).length,
-        color: getComputedStyle(document.documentElement).getPropertyValue(categoryColorToken(category)).trim() || '#525252',
+        color: categoryClasses(category),
     })).filter(({ count }) => count > 0);
-    const summary = `<div class="summary"><div class="summary-total"><strong>${tasks.length}</strong><span>Tareas realizadas</span></div>${categoryCounts.map(({ category, count, color }) => `<div class="summary-category" style="--category-color:${escapeHtml(color)}"><span>${escapeHtml(category)}:</span> <strong>${count}</strong></div>`).join('')}</div>`;
+    const summary = `<div class="${reportClasses.summary}"><div class="${reportClasses.total}"><strong class="${reportClasses.count}">${tasks.length}</strong><span>Tareas realizadas</span></div>${categoryCounts.map(({ category, count, color }) => `<div class="${color}"><span>${escapeHtml(category)}:</span> <strong class="${reportClasses.count}">${count}</strong></div>`).join('')}</div>`;
     let pageBodies = [];
     let body;
 
     function newPage() {
         const sheet = doc.createElement('article');
-        sheet.className = 'sheet';
+        sheet.className = reportClasses.sheet;
         sheet.innerHTML = (pageBodies.length === 0 ? reportHeader(profile) + summary : '')
-            + `<div class="report-body"></div><footer class="report-footer"><span>${escapeHtml(profile.name)} · ${escapeHtml(profile.area)}</span><span class="page-count"></span></footer>`;
+            + `<div data-report-body class="${reportClasses.body}"></div><footer class="${reportClasses.footer}"><span class="${reportClasses.signature}">${escapeHtml(profile.name)} · ${escapeHtml(profile.area)}</span><span data-page-count class="${reportClasses.pageCount}"></span></footer>`;
         pagesRoot.append(sheet);
-        body = sheet.querySelector('.report-body');
+        body = sheet.querySelector('[data-report-body]');
         pageBodies.push(body);
     }
 
     function heading(group) {
         const node = doc.createElement('div');
-        node.className = 'day-heading';
-        node.innerHTML = `<span class="number">${group.date.getDate()}</span><div><strong>${escapeHtml(formatDate(group.date, { weekday: 'long' }))}</strong><small>${escapeHtml(formatDate(group.date, { day: 'numeric', month: 'long', year: 'numeric' }))}</small></div><span class="day-total">${group.items.length} ${group.items.length === 1 ? 'tarea' : 'tareas'}</span>`;
+        node.className = reportClasses.heading;
+        node.innerHTML = `<span class="${reportClasses.dayNumber}">${group.date.getDate()}</span><div><strong class="${reportClasses.dayName}">${escapeHtml(formatDate(group.date, { weekday: 'long' }))}</strong><small class="${reportClasses.dayDate}">${escapeHtml(formatDate(group.date, { day: 'numeric', month: 'long', year: 'numeric' }))}</small></div><span class="${reportClasses.dayTotal}">${group.items.length} ${group.items.length === 1 ? 'tarea' : 'tareas'}</span>`;
         body.append(node);
         return node;
     }
 
     function taskNode(task, fragment = null) {
         const node = doc.createElement('div');
-        node.className = 'report-task';
-        node.style.setProperty('--category-color', categoryCounts.find(row => row.category === task.category)?.color || '#525252');
+        node.className = reportClasses.task;
         if (fragment !== null) {
             const paragraph = doc.createElement('p');
+            paragraph.className = reportClasses.fragment;
             paragraph.textContent = fragment;
             node.append(paragraph);
         } else {
-            node.innerHTML = `<p class="task-title">${escapeHtml(task.title)}</p>${task.description ? `<p class="task-detail">${escapeHtml(task.description)}</p>` : ''}`;
+            node.innerHTML = `<p class="${reportClasses.taskTitle}">${escapeHtml(task.title)}</p>${task.description ? `<p class="${reportClasses.taskDetail}">${escapeHtml(task.description)}</p>` : ''}`;
         }
         const label = doc.createElement('span');
-        label.className = 'task-category';
+        label.className = `${reportClasses.label} ${categoryClasses(task.category)}`;
         label.textContent = task.category;
         node.firstElementChild.append(' ', label);
         return node;
@@ -679,14 +723,15 @@ function buildReport() {
 
     function paginate(size) {
         pagesRoot.replaceChildren();
-        pagesRoot.style.setProperty('--task-size', `${size}pt`);
+        pagesRoot.classList.remove(...reportSizes);
+        pagesRoot.classList.add(size);
         pageBodies = [];
         newPage();
         for (const group of groups) {
             let dayHeading = heading(group);
             if (!group.items.length) {
                 const empty = doc.createElement('p');
-                empty.className = 'report-empty';
+                empty.className = reportClasses.empty;
                 empty.textContent = 'Sin actividades registradas.';
                 body.append(empty);
                 if (!fits()) {
@@ -746,14 +791,16 @@ function buildReport() {
     }
 
     let pageCount;
-    for (const fontSize of [10.2, 9.6, 9]) {
+    for (const fontSize of reportSizes) {
         pageCount = paginate(fontSize);
         if (pageCount <= 3) break;
     }
-    doc.querySelectorAll('.page-count').forEach((node, index) => {
-        node.innerHTML = `<b>${String(index + 1).padStart(2, '0')}</b> / ${String(pageCount).padStart(2, '0')}`;
+    doc.querySelectorAll('[data-page-count]').forEach((node, index) => {
+        node.textContent = `${String(index + 1).padStart(2, '0')} / ${String(pageCount).padStart(2, '0')}`;
     });
-    $('#report-instructions').textContent = `${pageCount} ${pageCount === 1 ? 'página' : 'páginas'} A4.${pageCount > 3 ? ' Esta semana supera las 3 páginas; se conserva todo el contenido.' : ''} Para descargar, elige «Guardar como PDF», A4, escala 100 % y desactiva los encabezados y pies del navegador.`;
+    await Promise.all([...doc.images].map(image => image.decode()));
+    if (generation !== reportGeneration) return;
+    $('#report-instructions').textContent = '';
     fitPreview();
     state.reportReady = true;
     $('#print-report').disabled = false;
@@ -762,10 +809,14 @@ function buildReport() {
 function fitPreview() {
     const frame = $('#report-frame');
     const pages = frame.contentDocument?.getElementById('report-pages');
-    if (pages) pages.style.zoom = Math.min(1, Math.max(0.25, (frame.clientWidth - 24) / (210 * 96 / 25.4)));
+    if (pages) {
+        const scale = Math.min(1, Math.max(0.25, (frame.clientWidth - 24) / (210 * 96 / 25.4)));
+        pages.classList.remove(...previewZooms);
+        pages.classList.add(previewZooms[Math.floor(scale * 4) - 1]);
+    }
 }
 
-function openReport() {
+async function openReport() {
     if (!state.data) return;
     if (!tasksOfWeek().length) {
         toast('Registra al menos una tarea para generar el reporte.', true);
@@ -773,7 +824,7 @@ function openReport() {
     }
     $('#report-dialog').showModal();
     try {
-        buildReport();
+        await buildReport();
     } catch {
         $('#report-instructions').textContent = 'No se pudo preparar el reporte. Cierra esta ventana y vuelve a intentarlo.';
         toast('No se pudo preparar el reporte.', true);
@@ -781,8 +832,8 @@ function openReport() {
 }
 
 $('#export-pdf').addEventListener('click', openReport);
-$('#include-empty-days').addEventListener('change', () => {
-    try { buildReport(); } catch { toast('No se pudo actualizar la vista previa.', true); }
+$('#include-empty-days').addEventListener('change', async () => {
+    try { await buildReport(); } catch { toast('No se pudo actualizar la vista previa.', true); }
 });
 $('#print-report').addEventListener('click', () => {
     if (!state.reportReady) return;
@@ -793,14 +844,14 @@ $('#print-report').addEventListener('click', () => {
 window.addEventListener('resize', fitPreview);
 
 async function initialize() {
-    const requiresData = ['#add-task-top', '#previous-week', '#next-week', '#current-week', '#export-pdf', '#nav-history', '#nav-profile', '#nav-import', '#nav-categories', '#profile-shortcut', '#backup-button', '#task-search'];
+    const requiresData = ['#add-task-top', '#previous-week', '#next-week', '#current-week', '#export-pdf', '#nav-history', '#nav-import', '#nav-categories', '#profile-shortcut', '#backup-button', '#task-search'];
     requiresData.forEach(selector => { $(selector).disabled = true; });
     try {
         state.data = await request();
         render();
         storageStatus('Guardado en JSON');
     } catch (error) {
-        $('#task-list').innerHTML = `<div class="empty-results"><h3>No se pudo abrir tu bitácora</h3><p>${escapeHtml(error.message)}</p><button class="btn" id="retry-load">Volver a intentar</button></div>`;
+        $('#task-list').innerHTML = `<div class="card items-center gap-3 border border-base-300 bg-base-100 p-8 text-center"><h3 class="font-medium">No se pudo abrir tu bitácora</h3><p class="text-base-content/60">${escapeHtml(error.message)}</p><button class="btn btn-sm" id="retry-load">Volver a intentar</button></div>`;
         $('#retry-load').addEventListener('click', initialize);
         storageStatus('Sin conexión con el JSON', true);
     } finally {

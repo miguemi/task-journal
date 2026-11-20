@@ -2,6 +2,8 @@
 
 Requires **PHP 8.1+**. No `npm install` or `composer install` needed.
 
+The UI and PDF report use DaisyUI and Tailwind utilities via CDN (internet required), with no custom CSS.
+
 ## Install PHP
 
 - **Windows:** download PHP from [windows.php.net](https://windows.php.net/download/), extract it to `C:\php`, add that folder to your user's **Path**, and reopen PowerShell. Follow the download page's runtime requirements.
@@ -32,7 +34,7 @@ The interface is currently in Spanish:
 
 - Complete **Mi perfil** (My profile), record tasks, and manage **Categorías** (Categories).
 - Browse previous weeks in **Historial** (History).
-- **Generar reporte → Guardar como PDF**: choose A4, 100% scale, and disable browser headers and footers.
+- **Generar reporte → Guardar como PDF**: choose A4, 100% scale, no margins, and disable browser headers and footers.
 - **Respaldar mis datos / Importar respaldo**: export or restore your JSON data. Importing replaces existing data.
 
 **Optional AI:** create the `config` folder and `config/ai.local.php` containing `<?php return ['api_key'=>'YOUR_KEY', 'model'=>'deepseek-flash'];`. Click **Mejorar redacción** (Improve wording), review the suggestion, and save. This sends the task text to DeepSeek and may incur charges. PHP needs HTTPS support with OpenSSL and valid CA certificates.
