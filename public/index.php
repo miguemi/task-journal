@@ -63,7 +63,7 @@ header('X-Content-Type-Options: nosniff');
                 </div>
             </section>
 
-            <section id="history-view" hidden><h2 class="mb-4 font-medium">Tus semanas registradas</h2><div id="history-list" class="grid gap-3"></div></section>
+            <section id="history-view" hidden><h2 class="mb-4 font-medium">Tus semanas registradas</h2><div id="history-list" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"></div></section>
             <footer class="mt-8 flex flex-wrap justify-between gap-3 border-t border-base-300 py-4 text-xs text-base-content/60"><span>Datos locales · JSON</span><span id="footer-profile">Bitácora</span></footer>
         </main>
     </div>
