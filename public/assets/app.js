@@ -152,7 +152,7 @@ function renderCategories() {
     $('#categories-list').innerHTML = categories.map(name => {
         const count = state.data.tasks.filter(task => task.category === name).length;
         const token = categoryColorToken(name);
-        return `<div class="category-row"><div><span class="badge" style="background:var(${token});color:var(${token}-content)">${escapeHtml(name)}</span><span class="category-usage">${count} ${count === 1 ? 'tarea' : 'tareas'}</span></div><button class="btn btn-xs btn-error category-delete-button" type="button" data-delete-category="${escapeHtml(name)}" aria-label="Eliminar categoría ${escapeHtml(name)}">Eliminar</button></div>`;
+        return `<div class="category-row"><div><span class="badge" style="background:var(${token});color:var(${token}-content)">${escapeHtml(name)}</span><span class="category-usage">${count} ${count === 1 ? 'tarea' : 'tareas'}</span></div><div class="category-actions"><button class="btn btn-xs category-edit-button" type="button" data-edit-category="${escapeHtml(name)}" aria-label="Editar categoría ${escapeHtml(name)}">Editar</button><button class="btn btn-xs btn-error category-delete-button" type="button" data-delete-category="${escapeHtml(name)}" aria-label="Eliminar categoría ${escapeHtml(name)}">Eliminar</button></div></div>`;
     }).join('');
 }
 
@@ -342,10 +342,21 @@ $('#current-week').addEventListener('click', () => changeWeek(new Date()));
 $('#nav-week').addEventListener('click', () => showView('week'));
 $('#nav-history').addEventListener('click', () => showView('history'));
 $('#nav-profile').addEventListener('click', openProfile);
-$('#nav-categories').addEventListener('click', () => {
-    if (!state.data) return;
+function resetCategoryForm() {
     $('#category-form').reset();
+    $('#category-form').elements.originalName.value = '';
+    $('#category-form-title').textContent = 'Nueva categoría';
+    $('#category-submit').textContent = 'Crear categoría';
+    $('#category-cancel-edit').hidden = true;
     $('#category-error').textContent = '';
+}
+
+$('#category-cancel-edit').addEventListener('click', () => {
+    if (!state.saving) resetCategoryForm();
+});
+$('#nav-categories').addEventListener('click', () => {
+    if (!state.data || state.saving) return;
+    resetCategoryForm();
     renderCategories();
     $('#categories-dialog').showModal();
 });
@@ -353,12 +364,33 @@ $('#category-form').addEventListener('submit', async event => {
     event.preventDefault();
     const form = event.currentTarget;
     const input = Object.fromEntries(new FormData(form));
-    if (await save({ ...input, action: 'category.create' }, form, $('#category-error'))) {
-        form.reset();
-        toast('Categoría creada.');
+    const editing = Boolean(input.originalName);
+    const selectedCategory = state.category;
+    if (await save({ ...input, action: editing ? 'category.update' : 'category.create' }, form, $('#category-error'))) {
+        if (editing && selectedCategory === input.originalName) {
+            state.category = input.name.trim();
+            renderWeek();
+        }
+        resetCategoryForm();
+        toast(editing ? 'Categoría actualizada.' : 'Categoría creada.');
     }
 });
 $('#categories-list').addEventListener('click', event => {
+    const editButton = event.target.closest('[data-edit-category]');
+    if (editButton && !state.saving) {
+        const category = state.data.categories.find(item => item.name === editButton.dataset.editCategory);
+        if (!category) return;
+        const form = $('#category-form');
+        form.elements.originalName.value = category.name;
+        form.elements.name.value = category.name;
+        form.elements.color.value = category.color;
+        $('#category-form-title').textContent = 'Editar categoría';
+        $('#category-submit').textContent = 'Guardar cambios';
+        $('#category-cancel-edit').hidden = false;
+        $('#category-error').textContent = '';
+        form.elements.name.focus();
+        return;
+    }
     const button = event.target.closest('[data-delete-category]');
     if (!button || state.saving) return;
     const name = button.dataset.deleteCategory;
@@ -383,6 +415,7 @@ $('#category-delete-form').addEventListener('submit', async event => {
     const form = event.currentTarget;
     const input = Object.fromEntries(new FormData(form));
     if (await save({ ...input, action: 'category.delete', confirmed: true }, form, $('#category-delete-error'))) {
+        if ($('#category-form').elements.originalName.value === input.name) resetCategoryForm();
         $('#category-delete-dialog').close();
         toast('Categoría eliminada. Las tareas se conservaron.');
     }

@@ -28,7 +28,7 @@ function validatedCategories(mixed $categories): array
             || preg_match('/[\x00-\x1F\x7F]/u', $name) || preg_match('/\ATodas\z/iu', $name)) {
             throw new InvalidArgumentException('Usa un nombre de categoría de 1 a 30 caracteres, diferente de «Todas».');
         }
-        if (!in_array($category['color'], ['neutral', 'info', 'error', 'warning', 'success', 'secondary', 'accent'], true)) {
+        if (!in_array($category['color'], ['neutral', 'info', 'error', 'warning', 'success', 'secondary', 'accent', 'orange', 'violet', 'purple', 'indigo', 'lime', 'emerald', 'cyan', 'brown'], true)) {
             throw new InvalidArgumentException('Selecciona un color de categoría válido.');
         }
         foreach ($result as $existing) {

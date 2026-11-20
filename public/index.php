@@ -107,11 +107,12 @@ header('X-Content-Type-Options: nosniff');
             <div class="modal-heading"><h2>Categorías</h2><button class="btn btn-ghost btn-circle close-dialog" type="button" aria-label="Cerrar">✕</button></div>
             <div id="categories-list" class="categories-list"></div>
             <form id="category-form">
-                <h3>Nueva categoría</h3>
+                <h3 id="category-form-title">Nueva categoría</h3>
+                <input type="hidden" name="originalName" value="">
                 <label class="field-label" for="category-name">Nombre</label><input class="input" id="category-name" name="name" maxlength="30" placeholder="Ej. Documentación" required>
-                <label class="field-label" for="category-color">Color</label><select class="select" id="category-color" name="color"><option value="info">Azul</option><option value="error">Rojo</option><option value="warning">Amarillo</option><option value="success">Verde</option><option value="secondary">Rosa</option><option value="accent">Turquesa</option><option value="neutral">Neutro</option></select>
+                <label class="field-label" for="category-color">Color</label><select class="select" id="category-color" name="color"><option value="info">Azul</option><option value="error">Rojo</option><option value="warning">Amarillo</option><option value="success">Verde</option><option value="secondary">Rosa</option><option value="accent">Turquesa</option><option value="neutral">Neutro</option><option value="orange">Naranja</option><option value="violet">Violeta</option><option value="purple">Púrpura</option><option value="indigo">Índigo</option><option value="lime">Lima</option><option value="emerald">Esmeralda</option><option value="cyan">Cian</option><option value="brown">Marrón</option></select>
                 <p class="form-error" id="category-error" role="alert"></p>
-                <div class="modal-actions"><button class="btn btn-primary" type="submit">Crear categoría</button></div>
+                <div class="modal-actions"><button class="btn btn-ghost" id="category-cancel-edit" type="button" hidden>Cancelar edición</button><button class="btn btn-primary" id="category-submit" type="submit">Crear categoría</button></div>
             </form>
         </div>
         <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>

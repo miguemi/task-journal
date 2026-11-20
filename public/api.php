@@ -131,6 +131,18 @@ try {
             ...$data['categories'],
             ['name' => field($input, 'name', 30), 'color' => field($input, 'color', 20)],
         ]);
+    } elseif ($action === 'category.update') {
+        $originalName = field($input, 'originalName', 30);
+        $index = categoryIndex($data['categories'], $originalName);
+        if ($index === null) {
+            throw new InvalidArgumentException('La categoría ya no existe. Recarga la página.');
+        }
+        $name = field($input, 'name', 30);
+        $data['categories'][$index] = ['name' => $name, 'color' => field($input, 'color', 20)];
+        $data['categories'] = validatedCategories($data['categories']);
+        foreach ($data['tasks'] as $key => $task) {
+            if ($task['category'] === $originalName) $data['tasks'][$key]['category'] = $name;
+        }
     } elseif ($action === 'category.delete') {
         if (($input['confirmed'] ?? false) !== true) {
             throw new InvalidArgumentException('Confirma la eliminación de la categoría.');
