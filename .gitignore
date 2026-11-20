@@ -1,0 +1,57 @@
+# Versionar únicamente el código, la documentación y la definición de Nix.
+/*
+!/.gitignore
+!/README.md
+!/flake.nix
+!/flake.lock
+!/public/
+!/lib/
+
+# Archivos de arranque y datos privados: nunca subirlos.
+/run-*
+/config/
+/storage/
+/txt/
+
+# Datos, respaldos y reportes, incluso dentro de carpetas de código.
+*.json
+*.pdf
+*.txt
+*.csv
+*.xls
+*.xlsx
+*.doc
+*.docx
+*.zip
+*.tar
+*.gz
+*.sqlite
+*.sqlite3
+*.db
+
+# Credenciales, configuración local, temporales y registros.
+.env*
+*.[eE][nN][vV]
+*.[eE][nN][vV].*
+*.local.*
+credentials.*
+secrets.*
+id_rsa*
+id_ed25519*
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.log
+*.bak
+*.old
+*.tmp
+*.swp
+*~
+node_modules/
+vendor/
+.idea/
+.vscode/
