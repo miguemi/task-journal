@@ -28,6 +28,7 @@ header('X-Content-Type-Options: nosniff');
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5/colors/properties.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="assets/script-highlighting.js" defer></script>
     <script src="assets/app.js" defer></script>
 </head>
 <body class="min-h-screen bg-base-200 text-sm text-base-content">
@@ -38,6 +39,7 @@ header('X-Content-Type-Options: nosniff');
                 <ul class="menu w-full gap-2 p-0">
                 <li><button class="menu-active" id="nav-week"><span aria-hidden="true">▦</span> Mi semana</button></li>
                 <li><button id="nav-history"><span aria-hidden="true">▤</span> Historial de reportes</button></li>
+                <li><button id="nav-scripts"><span aria-hidden="true">⌘</span> Mis scripts</button></li>
                 <li><button id="nav-categories">Categorías</button></li>
                 </ul>
             </nav>
@@ -64,6 +66,16 @@ header('X-Content-Type-Options: nosniff');
             </section>
 
             <section id="history-view" hidden><h2 class="mb-4 font-medium">Tus semanas registradas</h2><div id="history-list" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"></div></section>
+            <section id="scripts-view" hidden>
+                <div class="mb-5 flex flex-wrap items-center gap-3">
+                    <label class="input input-sm w-full sm:max-w-sm"><span aria-hidden="true">⌕</span><input id="script-search" type="search" placeholder="Buscar por nombre, etiqueta o código…" aria-label="Buscar scripts"></label>
+                    <select class="select select-sm w-full sm:w-44" id="script-language-filter" aria-label="Filtrar por lenguaje"><option value="">Todos los lenguajes</option></select>
+                    <button class="btn btn-sm" id="script-favorites" aria-pressed="false">☆ Favoritos</button>
+                    <span class="text-xs text-base-content/60" id="script-count" role="status"></span>
+                </div>
+                <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" id="script-list" aria-live="polite"></div>
+                <p class="mt-5 text-xs text-base-content/60">Solo almacenamiento: aquí no se ejecuta código. Evita guardar contraseñas, tokens o claves privadas.</p>
+            </section>
             <footer class="mt-8 flex flex-wrap justify-between gap-3 border-t border-base-300 py-4 text-xs text-base-content/60"><span>Datos locales · JSON</span><span id="footer-profile">Bitácora</span></footer>
         </main>
     </div>
@@ -128,6 +140,32 @@ header('X-Content-Type-Options: nosniff');
                 <div class="modal-action flex-wrap gap-2"><button class="btn btn-ghost btn-sm" data-close-dialog type="button">Cancelar</button><button class="btn btn-error btn-sm" id="category-delete-submit" type="submit">Eliminar categoría</button></div>
             </form>
         </div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+    <dialog id="script-dialog" class="modal">
+        <div class="modal-box max-w-4xl text-sm">
+            <form id="script-form">
+                <div class="mb-4 flex items-start justify-between gap-4"><div><span class="text-xs text-base-content/60">UNA SOLUCIÓN PARA VOLVER A USAR</span><h2 class="font-semibold" id="script-dialog-title">Nuevo script</h2></div><button type="button" class="btn btn-ghost btn-circle btn-sm" data-close-dialog aria-label="Cerrar">✕</button></div>
+                <input type="hidden" name="id">
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="sm:col-span-2"><label class="mb-2 block" for="script-title">Nombre</label><input class="input w-full text-sm" id="script-title" name="title" maxlength="120" placeholder="Ej. Respaldo rápido de mi proyecto" required></div>
+                    <div><label class="mb-2 block" for="script-language">Lenguaje</label><select class="select w-full text-sm" id="script-language" name="language" required></select></div>
+                </div>
+                <label class="mt-4 mb-2 block" for="script-description">¿Para qué sirve y cómo se usa?</label><textarea class="textarea w-full text-sm" id="script-description" name="description" rows="2" maxlength="2000" placeholder="Requisitos, parámetros o pasos para usarlo…"></textarea>
+                <label class="mt-4 mb-2 block" for="script-code">Código <span class="text-base-content/60">· Tab para indentar · máximo 100000 caracteres</span></label>
+                <div class="relative rounded-box bg-slate-900 text-slate-200">
+                    <pre class="pointer-events-none absolute inset-0 m-0 overflow-hidden rounded-box border border-transparent p-4 font-mono text-sm leading-6 tracking-normal whitespace-pre" id="script-code-highlight" aria-hidden="true"><code class="font-mono text-sm leading-6"></code></pre>
+                    <textarea class="relative m-0 block min-h-72 w-full resize-y overflow-auto rounded-box border border-transparent bg-transparent p-4 font-mono text-sm leading-6 tracking-normal whitespace-pre text-transparent caret-slate-200 outline-none placeholder:text-slate-400 selection:bg-blue-500/25 focus:border-primary focus:outline-2 focus:outline-primary" id="script-code" name="code" rows="14" maxlength="100000" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" placeholder="Pega aquí tu script…" required></textarea>
+                </div>
+                <div class="mt-4 flex flex-wrap items-end gap-4"><div class="min-w-0 flex-1"><label class="mb-2 block" for="script-tags">Etiquetas <span class="text-base-content/60">(separadas por comas)</span></label><input class="input w-full text-sm" id="script-tags" name="tags" maxlength="200" placeholder="respaldos, servidor, diario"></div><label class="mb-2 flex items-center gap-2"><input class="checkbox checkbox-sm" id="script-favorite" name="favorite" type="checkbox"> Marcar como favorito</label></div>
+                <p class="mt-3 text-error empty:hidden" id="script-error" role="alert"></p>
+                <div class="modal-action flex-wrap gap-2"><button type="button" class="btn btn-ghost btn-sm" data-close-dialog>Cancelar</button><button class="btn btn-primary btn-sm" type="submit">Guardar script</button></div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+    <dialog id="script-delete-dialog" class="modal">
+        <div class="modal-box text-sm"><h2 class="font-semibold">¿Eliminar este script?</h2><p class="mt-3 text-base-content/60" id="script-delete-description"></p><p class="mt-2 text-error empty:hidden" id="script-delete-error" role="alert"></p><div class="modal-action flex-wrap gap-2"><button class="btn btn-ghost btn-sm" data-close-dialog>Cancelar</button><button class="btn btn-error btn-sm" id="confirm-script-delete">Eliminar script</button></div></div>
         <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
     </dialog>
     <div class="toast toast-end" id="toast-region" role="status" aria-live="polite"></div>

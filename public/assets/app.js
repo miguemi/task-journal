@@ -25,6 +25,22 @@ let toastTimer;
 let pendingImport = null;
 let aiController = null;
 let aiSuggestion = null;
+const scriptLanguages = {
+    bash: { name: 'Bash / Shell', extension: 'sh', color: 'border-emerald-700 bg-emerald-700 text-white' },
+    powershell: { name: 'PowerShell', extension: 'ps1', color: 'border-blue-800 bg-blue-800 text-white' },
+    python: { name: 'Python', extension: 'py', color: 'border-amber-400 bg-amber-400 text-amber-950' },
+    javascript: { name: 'JavaScript', extension: 'js', color: 'border-yellow-300 bg-yellow-300 text-yellow-950' },
+    typescript: { name: 'TypeScript', extension: 'ts', color: 'border-sky-700 bg-sky-700 text-white' },
+    php: { name: 'PHP', extension: 'php', color: 'border-indigo-600 bg-indigo-600 text-white' },
+    kotlin: { name: 'Kotlin', extension: 'kts', color: 'border-purple-600 bg-purple-600 text-white' },
+    json: { name: 'JSON', extension: 'json', color: 'border-slate-600 bg-slate-600 text-white' },
+    sql: { name: 'SQL', extension: 'sql', color: 'border-orange-700 bg-orange-700 text-white' },
+    other: { name: 'Otro / Texto', extension: 'txt', color: 'border-stone-600 bg-stone-600 text-white' },
+};
+const scriptState = { search: '', language: '', favorites: false, deleteId: null };
+const scriptLanguageOptions = Object.entries(scriptLanguages).map(([value, language]) => `<option value="${value}">${language.name}</option>`).join('');
+$('#script-language').innerHTML = scriptLanguageOptions;
+$('#script-language-filter').insertAdjacentHTML('beforeend', scriptLanguageOptions);
 
 function setTheme(theme) {
     const dark = theme === 'dark';
@@ -180,6 +196,7 @@ function render() {
     renderProfile();
     renderWeek();
     renderHistory();
+    renderScripts();
 }
 
 function renderWeek() {
@@ -226,13 +243,64 @@ function showView(view) {
     state.view = view;
     $('#week-view').hidden = view !== 'week';
     $('#history-view').hidden = view !== 'history';
+    $('#scripts-view').hidden = view !== 'scripts';
     $('#export-pdf').hidden = view !== 'week';
     $('#nav-week').classList.toggle('menu-active', view === 'week');
     $('#nav-history').classList.toggle('menu-active', view === 'history');
-    $('#page-title').textContent = view === 'week' ? 'Reporte semanal' : 'Historial de reportes';
-    $('#page-description').textContent = view === 'week' ? '' : 'Consulta tus semanas anteriores.';
+    $('#nav-scripts').classList.toggle('menu-active', view === 'scripts');
+    const titles = { week: 'Reporte semanal', history: 'Historial de reportes', scripts: 'Mis scripts' };
+    $('#page-title').textContent = titles[view];
+    $('#page-description').textContent = view === 'scripts' ? 'Tu biblioteca personal de soluciones cotidianas.' : 'Consulta tus semanas anteriores.';
     $('#page-description').hidden = view === 'week';
-    $('#breadcrumb-current').textContent = view === 'week' ? 'Reporte semanal' : 'Historial de reportes';
+    $('#breadcrumb-current').textContent = titles[view];
+    $('#add-task-top').textContent = view === 'scripts' ? '＋ Nuevo script' : '＋ Nueva tarea';
+}
+
+function renderScripts() {
+    const scripts = state.data.scripts || [];
+    const visible = scripts.filter(script => (!scriptState.language || script.language === scriptState.language)
+        && (!scriptState.favorites || script.favorite)
+        && normalize(`${script.title} ${script.description} ${script.tags} ${script.code} ${scriptLanguages[script.language].name}`).includes(normalize(scriptState.search)))
+        .sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.title.localeCompare(b.title, 'es'));
+    $('#script-count').textContent = `${visible.length} de ${scripts.length} scripts`;
+    $('#script-favorites').classList.toggle('btn-warning', scriptState.favorites);
+    $('#script-favorites').setAttribute('aria-pressed', String(scriptState.favorites));
+    $('#script-list').innerHTML = visible.map(script => {
+        const id = escapeHtml(script.id);
+        const lines = script.code.split(/\r\n|\r|\n/);
+        const preview = lines.slice(0, 6).map(line => line.slice(0, 180)).join('\n');
+        const tags = script.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+        return `<article class="card min-w-0 overflow-hidden border border-base-300 bg-base-100">
+            <div class="card-body gap-3 p-5">
+                <div class="flex items-center justify-between gap-2"><span class="badge badge-sm ${scriptLanguages[script.language].color}">${scriptLanguages[script.language].name}</span><button class="btn btn-ghost btn-square btn-sm ${script.favorite ? 'text-warning' : ''}" data-script-action="favorite" data-script-id="${id}" aria-label="${script.favorite ? 'Quitar de' : 'Añadir a'} favoritos: ${escapeHtml(script.title)}" aria-pressed="${script.favorite}">${script.favorite ? '★' : '☆'}</button></div>
+                <h3 class="break-words font-semibold">${escapeHtml(script.title)}</h3>
+                <p class="line-clamp-2 whitespace-pre-wrap break-words text-base-content/60">${escapeHtml(script.description || 'Sin notas. Tu código, listo para reutilizar.')}</p>
+                <div class="overflow-hidden rounded-box bg-slate-900 p-3 text-slate-200"><pre class="h-36 overflow-hidden font-mono text-xs leading-6" aria-label="Vista previa del código"><code>${highlightScript(preview, script.language)}</code></pre><div class="mt-2 border-t border-white/20 pt-2 text-xs text-slate-400">${lines.length} ${lines.length === 1 ? 'línea' : 'líneas'} · Vista previa</div></div>
+                <div class="flex flex-wrap gap-1">${tags.map(tag => `<span class="badge badge-ghost badge-sm h-auto whitespace-normal break-all">${escapeHtml(tag)}</span>`).join('')}</div>
+                <div class="mt-auto flex flex-wrap gap-2 pt-2"><button class="btn btn-primary btn-sm" data-script-action="copy" data-script-id="${id}">Copiar</button><button class="btn btn-sm" data-script-action="edit" data-script-id="${id}">Ver / Editar</button><button class="btn btn-sm btn-ghost" data-script-action="download" data-script-id="${id}">Descargar</button><button class="btn btn-xs btn-ghost" data-script-action="duplicate" data-script-id="${id}">Duplicar</button><button class="btn btn-xs btn-ghost text-error" data-script-action="delete" data-script-id="${id}">Eliminar</button></div>
+            </div>
+        </article>`;
+    }).join('') || (scripts.length ? '<div class="card col-span-full items-center gap-3 border border-dashed border-base-300 bg-base-100 px-6 py-12 text-center"><h3 class="font-semibold">Ningún script coincide</h3><p class="text-base-content/60">Prueba otro lenguaje, etiqueta o palabra.</p><button class="btn btn-primary btn-sm" data-script-action="clear">Limpiar filtros</button></div>' : '');
+}
+
+function openScript(script = null, duplicate = false) {
+    if (!state.data || state.saving) return;
+    const form = $('#script-form');
+    form.reset();
+    form.elements.id.value = duplicate ? '' : script?.id || '';
+    form.elements.title.value = script ? (duplicate ? `${script.title.slice(0, 112)} (copia)` : script.title) : '';
+    form.elements.description.value = script?.description || '';
+    form.elements.language.value = script?.language || 'bash';
+    form.elements.code.value = script?.code || '';
+    form.elements.tags.value = script?.tags || '';
+    form.elements.favorite.checked = script?.favorite || false;
+    $('#script-error').textContent = '';
+    $('#script-dialog-title').textContent = duplicate ? 'Duplicar script' : script ? 'Ver / Editar script' : 'Nuevo script';
+    $('#script-dialog').showModal();
+    form.elements.code.scrollTop = 0;
+    form.elements.code.scrollLeft = 0;
+    renderScriptHighlight();
+    form.elements.title.focus();
 }
 
 function changeWeek(date) {
@@ -345,12 +413,94 @@ $('#apply-ai').addEventListener('click', () => {
     toast('Propuesta aplicada. Pulsa «Guardar tarea» para conservarla.');
 });
 
-$('#add-task-top').addEventListener('click', () => openTask(defaultTaskDate()));
+$('#add-task-top').addEventListener('click', () => state.view === 'scripts' ? openScript() : openTask(defaultTaskDate()));
 $('#previous-week').addEventListener('click', () => changeWeek(addDays(state.week, -7)));
 $('#next-week').addEventListener('click', () => changeWeek(addDays(state.week, 7)));
 $('#current-week').addEventListener('click', () => changeWeek(new Date()));
 $('#nav-week').addEventListener('click', () => showView('week'));
 $('#nav-history').addEventListener('click', () => showView('history'));
+$('#nav-scripts').addEventListener('click', () => showView('scripts'));
+$('#script-search').addEventListener('input', event => { scriptState.search = event.target.value.trim(); renderScripts(); });
+$('#script-language-filter').addEventListener('change', event => { scriptState.language = event.target.value; renderScripts(); });
+$('#script-favorites').addEventListener('click', () => { scriptState.favorites = !scriptState.favorites; renderScripts(); });
+$('#script-code').addEventListener('input', renderScriptHighlight);
+$('#script-code').addEventListener('scroll', syncScriptHighlightScroll);
+$('#script-language').addEventListener('change', renderScriptHighlight);
+$('#script-code').addEventListener('keydown', event => {
+    if (event.key !== 'Tab' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+    const input = event.currentTarget;
+    if (input.value.length - (input.selectionEnd - input.selectionStart) + 4 > input.maxLength) return;
+    event.preventDefault();
+    input.setRangeText('    ', input.selectionStart, input.selectionEnd, 'end');
+    renderScriptHighlight();
+});
+$('#script-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const input = Object.fromEntries(new FormData(form));
+    input.favorite = form.elements.favorite.checked;
+    if (await save({ ...input, action: input.id ? 'script.update' : 'script.create' }, form, $('#script-error'))) {
+        $('#script-dialog').close();
+        toast(input.id ? 'Script actualizado.' : 'Script guardado en tu biblioteca.');
+    }
+});
+$('#script-list').addEventListener('click', async event => {
+    const button = event.target.closest('[data-script-action]');
+    if (!button || state.saving) return;
+    const action = button.dataset.scriptAction;
+    if (action === 'new') return openScript();
+    if (action === 'clear') {
+        scriptState.search = '';
+        scriptState.language = '';
+        scriptState.favorites = false;
+        $('#script-search').value = '';
+        $('#script-language-filter').value = '';
+        renderScripts();
+        return;
+    }
+    const script = state.data.scripts.find(item => item.id === button.dataset.scriptId);
+    if (!script) return;
+    if (action === 'edit' || action === 'duplicate') return openScript(script, action === 'duplicate');
+    if (action === 'copy') {
+        try {
+            await navigator.clipboard.writeText(script.code);
+            toast('Código copiado.');
+        } catch {
+            openScript(script);
+            $('#script-code').focus();
+            $('#script-code').select();
+            toast('Copia automática no disponible. Código seleccionado: usa Ctrl+C o ⌘C.', true);
+        }
+    }
+    if (action === 'download') {
+        const url = URL.createObjectURL(new Blob([script.code], { type: 'text/plain;charset=utf-8' }));
+        const link = document.createElement('a');
+        const name = normalize(script.title).replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'script';
+        link.href = url;
+        link.download = `${name}.${scriptLanguages[script.language].extension}`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast('Script descargado.');
+    }
+    if (action === 'favorite') {
+        const errorTarget = document.createElement('span');
+        const success = await save({ action: 'script.favorite', id: script.id, favorite: !script.favorite }, button, errorTarget);
+        if (!success && errorTarget.textContent) toast(errorTarget.textContent, true);
+    }
+    if (action === 'delete') {
+        scriptState.deleteId = script.id;
+        $('#script-delete-description').textContent = `«${script.title}» se quitará de tu biblioteca. Esta acción no se puede deshacer.`;
+        $('#script-delete-error').textContent = '';
+        $('#script-delete-dialog').showModal();
+    }
+});
+$('#confirm-script-delete').addEventListener('click', async () => {
+    if (await save({ action: 'script.delete', id: scriptState.deleteId, confirmed: true }, $('#script-delete-dialog'), $('#script-delete-error'))) {
+        $('#script-delete-dialog').close();
+        scriptState.deleteId = null;
+        toast('Script eliminado.');
+    }
+});
 function resetCategoryForm() {
     $('#category-form').reset();
     $('#category-form').elements.originalName.value = '';
@@ -552,8 +702,14 @@ $('#import-file').addEventListener('change', async event => {
             throw new Error('El archivo no es un respaldo válido de Bitácora.');
         }
         if (backup.tasks.length > 10000) throw new Error('El respaldo supera el límite de 10000 tareas.');
+        if (backup.scripts !== undefined && (!Array.isArray(backup.scripts) || backup.scripts.length > 1000)) {
+            throw new Error('El respaldo debe contener una lista de hasta 1000 scripts.');
+        }
         pendingImport = backup;
-        $('#import-preview').textContent = `${backup.profile.name} · ${backup.tasks.length} tareas en el respaldo. Actualmente tienes ${state.data.tasks.length} tareas que serán reemplazadas.`;
+        const scriptNotice = backup.scripts === undefined
+            ? 'Es un respaldo anterior: tus scripts actuales se conservarán.'
+            : `${backup.scripts.length} scripts en el respaldo; se reemplazarán tus ${state.data.scripts.length} scripts actuales.`;
+        $('#import-preview').textContent = `${backup.profile.name} · ${backup.tasks.length} tareas en el respaldo. Actualmente tienes ${state.data.tasks.length} tareas que serán reemplazadas. ${scriptNotice}`;
         $('#import-preview').hidden = false;
     } catch (error) {
         if (input.files[0] !== file) return;
@@ -844,7 +1000,7 @@ $('#print-report').addEventListener('click', () => {
 window.addEventListener('resize', fitPreview);
 
 async function initialize() {
-    const requiresData = ['#add-task-top', '#previous-week', '#next-week', '#current-week', '#export-pdf', '#nav-history', '#nav-import', '#nav-categories', '#profile-shortcut', '#backup-button', '#task-search'];
+    const requiresData = ['#add-task-top', '#previous-week', '#next-week', '#current-week', '#export-pdf', '#nav-history', '#nav-scripts', '#nav-import', '#nav-categories', '#profile-shortcut', '#backup-button', '#task-search', '#script-search', '#script-language-filter', '#script-favorites'];
     requiresData.forEach(selector => { $(selector).disabled = true; });
     try {
         state.data = await request();

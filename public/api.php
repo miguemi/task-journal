@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__) . '/lib/categories.php';
+require dirname(__DIR__) . '/lib/scripts.php';
 
 session_start();
 header('Content-Type: application/json; charset=utf-8');
@@ -55,6 +56,7 @@ try {
         throw new RuntimeException('El archivo de datos no tiene el formato esperado.');
     }
     $data['categories'] = validatedCategories($data['categories'] ?? defaultCategories());
+    $data['scripts'] = validatedScripts($data['scripts'] ?? []);
     if ($method === 'GET') {
         respond($data);
         return;
@@ -74,7 +76,8 @@ try {
         throw new InvalidArgumentException('La solicitud no es válida.');
     }
     $action = $input['action'] ?? '';
-    if ($action !== 'backup.import' && strlen($raw) > 32768) {
+    $requestLimit = in_array($action, ['script.create', 'script.update'], true) ? 1024 * 1024 : 32768;
+    if ($action !== 'backup.import' && strlen($raw) > $requestLimit) {
         respond(['error' => 'La solicitud es demasiado grande.'], 413);
         return;
     }
@@ -96,6 +99,7 @@ try {
             ],
             'tasks' => [],
             'categories' => validatedCategories($backup['categories'] ?? defaultCategories()),
+            'scripts' => validatedScripts(array_key_exists('scripts', $backup) ? $backup['scripts'] : $data['scripts']),
         ];
         $ids = [];
         foreach ($backup['tasks'] as $number => $item) {
@@ -126,6 +130,45 @@ try {
             ];
         }
         $data = $imported;
+    } elseif (in_array($action, ['script.create', 'script.update', 'script.delete', 'script.favorite'], true)) {
+        $index = null;
+        if ($action !== 'script.create') {
+            $id = field($input, 'id', 64);
+            foreach ($data['scripts'] as $key => $script) {
+                if ($script['id'] === $id) {
+                    $index = $key;
+                    break;
+                }
+            }
+            if ($index === null) {
+                respond(['error' => 'Este script ya no existe. Recarga la página.'], 404);
+                return;
+            }
+        }
+        if ($action === 'script.delete') {
+            if (($input['confirmed'] ?? false) !== true) {
+                throw new InvalidArgumentException('Confirma la eliminación del script.');
+            }
+            array_splice($data['scripts'], $index, 1);
+        } elseif ($action === 'script.favorite') {
+            if (!isset($input['favorite']) || !is_bool($input['favorite'])) {
+                throw new InvalidArgumentException('El favorito del script no es válido.');
+            }
+            $data['scripts'][$index]['favorite'] = $input['favorite'];
+        } else {
+            if ($action === 'script.create' && count($data['scripts']) >= 1000) {
+                throw new InvalidArgumentException('Tu biblioteca admite hasta 1000 scripts.');
+            }
+            $script = [
+                'id' => $action === 'script.create' ? bin2hex(random_bytes(12)) : $data['scripts'][$index]['id'],
+                ...validatedScript($input),
+            ];
+            if ($action === 'script.create') {
+                $data['scripts'][] = $script;
+            } else {
+                $data['scripts'][$index] = $script;
+            }
+        }
     } elseif ($action === 'category.create') {
         $data['categories'] = validatedCategories([
             ...$data['categories'],
