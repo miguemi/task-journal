@@ -198,6 +198,7 @@ function render() {
     renderHistory();
     renderScripts();
     renderNotes();
+    renderReminders();
 }
 
 function renderWeek() {
@@ -241,25 +242,27 @@ function renderHistory() {
 }
 
 function showView(view) {
-    if (!['week', 'history', 'scripts', 'notes'].includes(view)) view = 'week';
+    if (!['week', 'history', 'scripts', 'notes', 'reminders'].includes(view)) view = 'week';
     state.view = view;
     try { sessionStorage.setItem('bitacora-view', view); } catch {}
     $('#week-view').hidden = view !== 'week';
     $('#history-view').hidden = view !== 'history';
     $('#scripts-view').hidden = view !== 'scripts';
     $('#notes-view').hidden = view !== 'notes';
+    $('#reminders-view').hidden = view !== 'reminders';
     $('#export-pdf').hidden = view !== 'week';
     $('#nav-categories').hidden = view !== 'week';
     $('#nav-week').classList.toggle('menu-active', view === 'week');
     $('#nav-history').classList.toggle('menu-active', view === 'history');
     $('#nav-scripts').classList.toggle('menu-active', view === 'scripts');
     $('#nav-notes').classList.toggle('menu-active', view === 'notes');
-    const titles = { week: 'Reporte semanal', history: 'Historial de reportes', scripts: 'Mis scripts', notes: 'Notas de incidencias' };
+    $('#nav-reminders').classList.toggle('menu-active', view === 'reminders');
+    const titles = { week: 'Reporte semanal', history: 'Historial de reportes', scripts: 'Mis scripts', notes: 'Notas de incidencias', reminders: 'Recordatorios' };
     $('#page-title').textContent = titles[view];
     $('#page-description').textContent = view === 'scripts' ? 'Tu biblioteca personal de soluciones cotidianas.' : 'Consulta tus semanas anteriores.';
-    $('#page-description').hidden = view === 'week' || view === 'notes';
+    $('#page-description').hidden = view === 'week' || view === 'notes' || view === 'reminders';
     $('#breadcrumb-current').textContent = titles[view];
-    $('#add-task-top').textContent = view === 'notes' ? '＋ Nueva nota' : view === 'scripts' ? '＋ Nuevo script' : '＋ Nueva tarea';
+    $('#add-task-top').textContent = view === 'reminders' ? '＋ Nuevo recordatorio' : view === 'notes' ? '＋ Nueva nota' : view === 'scripts' ? '＋ Nuevo script' : '＋ Nueva tarea';
 }
 
 function renderScripts() {
@@ -419,6 +422,7 @@ $('#apply-ai').addEventListener('click', () => {
 
 $('#add-task-top').addEventListener('click', () => {
     if (state.view === 'notes') openNote();
+    else if (state.view === 'reminders') openReminder();
     else if (state.view === 'scripts') openScript();
     else openTask(defaultTaskDate());
 });
@@ -429,6 +433,7 @@ $('#nav-week').addEventListener('click', () => showView('week'));
 $('#nav-history').addEventListener('click', () => showView('history'));
 $('#nav-scripts').addEventListener('click', () => showView('scripts'));
 initializeNotes();
+initializeReminders();
 $('#script-search').addEventListener('input', event => { scriptState.search = event.target.value.trim(); renderScripts(); });
 $('#script-language-filter').addEventListener('change', event => { scriptState.language = event.target.value; renderScripts(); });
 $('#script-favorites').addEventListener('click', () => { scriptState.favorites = !scriptState.favorites; renderScripts(); });
@@ -717,6 +722,9 @@ $('#import-file').addEventListener('change', async event => {
         if (backup.notes !== undefined && (!Array.isArray(backup.notes) || backup.notes.length > 1000)) {
             throw new Error('El respaldo debe contener una lista de hasta 1000 notas.');
         }
+        if (backup.reminders !== undefined && (!Array.isArray(backup.reminders) || backup.reminders.length > 1000)) {
+            throw new Error('El respaldo debe contener una lista de hasta 1000 recordatorios.');
+        }
         pendingImport = backup;
         const scriptNotice = backup.scripts === undefined
             ? 'Es un respaldo anterior: tus scripts actuales se conservarán.'
@@ -724,7 +732,10 @@ $('#import-file').addEventListener('change', async event => {
         const noteNotice = backup.notes === undefined
             ? 'El respaldo no contiene notas: tus notas actuales se conservarán.'
             : `${backup.notes.length} notas con sus capturas en el respaldo; se reemplazarán tus ${state.data.notes.length} notas actuales.`;
-        $('#import-preview').textContent = `${backup.profile.name} · ${backup.tasks.length} tareas en el respaldo. Actualmente tienes ${state.data.tasks.length} tareas que serán reemplazadas. ${scriptNotice} ${noteNotice}`;
+        const reminderNotice = backup.reminders === undefined
+            ? 'El respaldo no contiene recordatorios: tus recordatorios actuales se conservarán.'
+            : `${backup.reminders.length} recordatorios en el respaldo; se reemplazarán tus ${state.data.reminders.length} recordatorios actuales.`;
+        $('#import-preview').textContent = `${backup.profile.name} · ${backup.tasks.length} tareas en el respaldo. Actualmente tienes ${state.data.tasks.length} tareas que serán reemplazadas. ${scriptNotice} ${noteNotice} ${reminderNotice}`;
         $('#import-preview').hidden = false;
     } catch (error) {
         if (input.files[0] !== file) return;
@@ -1015,7 +1026,7 @@ $('#print-report').addEventListener('click', () => {
 window.addEventListener('resize', fitPreview);
 
 async function initialize() {
-    const requiresData = ['#add-task-top', '#previous-week', '#next-week', '#current-week', '#export-pdf', '#nav-history', '#nav-scripts', '#nav-notes', '#nav-import', '#nav-categories', '#profile-shortcut', '#backup-button', '#task-search', '#script-search', '#script-language-filter', '#script-favorites', '#note-search'];
+    const requiresData = ['#add-task-top', '#previous-week', '#next-week', '#current-week', '#export-pdf', '#nav-history', '#nav-scripts', '#nav-notes', '#nav-reminders', '#nav-import', '#nav-categories', '#profile-shortcut', '#backup-button', '#task-search', '#script-search', '#script-language-filter', '#script-favorites', '#note-search', '#reminder-filter'];
     requiresData.forEach(selector => { $(selector).disabled = true; });
     try {
         state.data = await request();

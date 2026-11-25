@@ -3,6 +3,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/lib/categories.php';
 require dirname(__DIR__) . '/lib/scripts.php';
 require dirname(__DIR__) . '/lib/notes.php';
+require dirname(__DIR__) . '/lib/reminders.php';
 
 session_start();
 header('Content-Type: application/json; charset=utf-8');
@@ -59,6 +60,7 @@ try {
     $data['categories'] = validatedCategories($data['categories'] ?? defaultCategories());
     $data['scripts'] = validatedScripts($data['scripts'] ?? []);
     $data['notes'] = validatedNotes($data['notes'] ?? []);
+    $data['reminders'] = validatedReminders($data['reminders'] ?? []);
     if ($method === 'GET') {
         respond($data);
         return;
@@ -104,6 +106,7 @@ try {
             'categories' => validatedCategories($backup['categories'] ?? defaultCategories()),
             'scripts' => validatedScripts(array_key_exists('scripts', $backup) ? $backup['scripts'] : $data['scripts']),
             'notes' => validatedNotes(array_key_exists('notes', $backup) ? $backup['notes'] : $data['notes']),
+            'reminders' => validatedReminders(array_key_exists('reminders', $backup) ? $backup['reminders'] : $data['reminders']),
         ];
         $ids = [];
         foreach ($backup['tasks'] as $number => $item) {
@@ -134,6 +137,45 @@ try {
             ];
         }
         $data = $imported;
+    } elseif (in_array($action, ['reminder.create', 'reminder.update', 'reminder.delete', 'reminder.complete'], true)) {
+        $index = null;
+        if ($action !== 'reminder.create') {
+            $id = field($input, 'id', 64);
+            foreach ($data['reminders'] as $key => $reminder) {
+                if ($reminder['id'] === $id) {
+                    $index = $key;
+                    break;
+                }
+            }
+            if ($index === null) {
+                respond(['error' => 'Este recordatorio ya no existe. Recarga la página.'], 404);
+                return;
+            }
+        }
+        if ($action === 'reminder.delete') {
+            if (($input['confirmed'] ?? false) !== true) {
+                throw new InvalidArgumentException('Confirma la eliminación del recordatorio.');
+            }
+            array_splice($data['reminders'], $index, 1);
+        } elseif ($action === 'reminder.complete') {
+            if (!isset($input['completed']) || !is_bool($input['completed'])) {
+                throw new InvalidArgumentException('El estado del recordatorio no es válido.');
+            }
+            $data['reminders'][$index]['completed'] = $input['completed'];
+        } else {
+            if ($action === 'reminder.create' && count($data['reminders']) >= 1000) {
+                throw new InvalidArgumentException('Se admite un máximo de 1000 recordatorios.');
+            }
+            $reminder = [
+                'id' => $action === 'reminder.create' ? bin2hex(random_bytes(12)) : $data['reminders'][$index]['id'],
+                ...validatedReminder($input),
+            ];
+            if ($action === 'reminder.create') {
+                $data['reminders'][] = $reminder;
+            } else {
+                $data['reminders'][$index] = $reminder;
+            }
+        }
     } elseif (in_array($action, ['note.create', 'note.update', 'note.delete'], true)) {
         $index = null;
         if ($action !== 'note.create') {
@@ -304,7 +346,7 @@ try {
     }
     $data['updatedAt'] = gmdate('c');
     $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
-    if (in_array($action, ['note.create', 'note.update', 'backup.import'], true) && strlen($json) > 20 * 1024 * 1024) {
+    if (in_array($action, ['note.create', 'note.update', 'reminder.create', 'reminder.update', 'backup.import'], true) && strlen($json) > 20 * 1024 * 1024) {
         throw new InvalidArgumentException('El JSON supera los 20 MB. Reduce las capturas o elimina notas que ya no necesites.');
     }
     $temporary = tempnam($directory, '.reportes-');

@@ -30,6 +30,7 @@ header('X-Content-Type-Options: nosniff');
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="assets/script-highlighting.js" defer></script>
     <script src="assets/notes.js" defer></script>
+    <script src="assets/reminders.js" defer></script>
     <script src="assets/app.js" defer></script>
 </head>
 <body class="min-h-screen bg-base-200 text-sm text-base-content">
@@ -37,11 +38,12 @@ header('X-Content-Type-Options: nosniff');
         <aside class="flex flex-col gap-6 border-b border-base-300 bg-base-100 p-4 lg:fixed lg:inset-y-0 lg:w-56 lg:border-r lg:border-b-0">
             <a class="btn btn-ghost justify-start text-sm" href="./" aria-label="Bitácora, inicio">Bitácora</a>
             <nav aria-label="Navegación principal">
-                <ul class="menu w-full gap-2 p-0">
+                <ul class="menu w-full gap-2 p-0" style="--menu-active-bg: var(--color-base-300); --menu-active-fg: var(--color-base-content)">
                 <li><button class="menu-active" id="nav-week"><span aria-hidden="true">▦</span> Mi semana</button></li>
                 <li><button id="nav-history"><span aria-hidden="true">▤</span> Historial de reportes</button></li>
                 <li><button id="nav-scripts"><span aria-hidden="true">⌘</span> Mis scripts</button></li>
                 <li><button id="nav-notes"><span aria-hidden="true">▧</span> Notas de incidencias</button></li>
+                <li><button id="nav-reminders"><span aria-hidden="true">☑</span> Recordatorios <span class="badge badge-error badge-sm" id="reminder-due-count" role="status" hidden></span></button></li>
                 </ul>
             </nav>
             <div class="mt-auto flex flex-col gap-2">
@@ -89,6 +91,19 @@ header('X-Content-Type-Options: nosniff');
                     <span class="text-xs text-base-content/60" id="note-count" role="status"></span>
                 </div>
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" id="note-list" aria-live="polite"></div>
+            </section>
+            <section id="reminders-view" hidden>
+                <div class="mb-4 flex flex-wrap items-center gap-3">
+                    <select class="select select-sm w-full sm:w-44" id="reminder-filter" aria-label="Filtrar recordatorios"><option value="pending">Pendientes</option><option value="completed">Completados</option><option value="all">Todos</option></select>
+                    <span class="text-xs text-base-content/60" id="reminder-count" role="status"></span>
+                </div>
+                <p class="mb-3 text-sm text-error empty:hidden" id="reminder-list-error" role="alert"></p>
+                <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+                    <table class="table table-zebra table-sm">
+                        <caption class="sr-only">Lista de recordatorios</caption>
+                        <tbody id="reminder-list" aria-live="polite"></tbody>
+                    </table>
+                </div>
             </section>
             <footer class="mt-8 flex flex-wrap justify-between gap-3 border-t border-base-300 py-4 text-xs text-base-content/60"><span>Datos locales · JSON</span><span id="footer-profile">Bitácora</span></footer>
         </main>
@@ -217,6 +232,28 @@ header('X-Content-Type-Options: nosniff');
     </dialog>
     <dialog id="note-delete-dialog" class="modal">
         <div class="modal-box text-sm"><h2 class="font-semibold">¿Eliminar esta nota?</h2><p class="mt-3 text-base-content/60" id="note-delete-description"></p><p class="mt-2 text-error empty:hidden" id="note-delete-error" role="alert"></p><div class="modal-action flex-wrap gap-2"><button class="btn btn-ghost btn-sm" data-close-dialog>Cancelar</button><button class="btn btn-error btn-sm" id="confirm-note-delete">Eliminar nota</button></div></div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+    <dialog id="reminder-dialog" class="modal">
+        <div class="modal-box text-sm">
+            <form id="reminder-form">
+                <div class="mb-4 flex items-center justify-between gap-4"><h2 class="font-semibold" id="reminder-dialog-title">Nuevo recordatorio</h2><button type="button" class="btn btn-ghost btn-circle btn-sm" data-close-dialog aria-label="Cerrar">✕</button></div>
+                <input type="hidden" name="id">
+                <label class="mb-2 block" for="reminder-title">¿Qué necesitas recordar?</label>
+                <input class="input input-sm w-full" id="reminder-title" name="title" maxlength="200" required>
+                <label class="mt-4 mb-2 block" for="reminder-date">Fecha del recordatorio</label>
+                <input class="input input-sm w-full" id="reminder-date" name="date" type="date" min="2000-01-01" max="2100-12-31" required>
+                <label class="mt-4 mb-2 block" for="reminder-description">Detalles (opcional)</label>
+                <textarea class="textarea w-full text-sm" id="reminder-description" name="description" maxlength="2000" rows="3"></textarea>
+                <label class="mt-4 flex items-center gap-2"><input class="checkbox checkbox-sm checkbox-success" type="checkbox" name="completed"> Completado</label>
+                <p class="mt-3 text-error empty:hidden" id="reminder-error" role="alert"></p>
+                <div class="modal-action flex-wrap gap-2"><button type="button" class="btn btn-ghost btn-sm" data-close-dialog>Cancelar</button><button type="submit" class="btn btn-primary btn-sm">Guardar recordatorio</button></div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+    <dialog id="reminder-delete-dialog" class="modal">
+        <div class="modal-box text-sm"><h2 class="font-semibold">¿Eliminar este recordatorio?</h2><p class="mt-3 break-words text-base-content/60" id="reminder-delete-description"></p><p class="mt-2 text-error empty:hidden" id="reminder-delete-error" role="alert"></p><div class="modal-action flex-wrap gap-2"><button class="btn btn-ghost btn-sm" data-close-dialog>Cancelar</button><button class="btn btn-error btn-sm" id="confirm-reminder-delete">Eliminar recordatorio</button></div></div>
         <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
     </dialog>
     <div class="toast toast-end" id="toast-region" role="status" aria-live="polite"></div>
