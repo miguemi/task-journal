@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require dirname(__DIR__) . '/lib/categories.php';
 require dirname(__DIR__) . '/lib/scripts.php';
+require dirname(__DIR__) . '/lib/notes.php';
 
 session_start();
 header('Content-Type: application/json; charset=utf-8');
@@ -57,18 +58,19 @@ try {
     }
     $data['categories'] = validatedCategories($data['categories'] ?? defaultCategories());
     $data['scripts'] = validatedScripts($data['scripts'] ?? []);
+    $data['notes'] = validatedNotes($data['notes'] ?? []);
     if ($method === 'GET') {
         respond($data);
         return;
     }
-    $limit = 5 * 1024 * 1024 + 1024;
+    $limit = 20 * 1024 * 1024 + 1024;
     if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > $limit) {
-        respond(['error' => 'El respaldo supera el límite de 5 MB.'], 413);
+        respond(['error' => 'El respaldo supera el límite de 20 MB.'], 413);
         return;
     }
     $raw = file_get_contents('php://input', false, null, 0, $limit + 1);
     if ($raw === false || strlen($raw) > $limit) {
-        respond(['error' => 'El respaldo supera el límite de 5 MB.'], 413);
+        respond(['error' => 'El respaldo supera el límite de 20 MB.'], 413);
         return;
     }
     $input = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
@@ -77,6 +79,7 @@ try {
     }
     $action = $input['action'] ?? '';
     $requestLimit = in_array($action, ['script.create', 'script.update'], true) ? 1024 * 1024 : 32768;
+    if (in_array($action, ['note.create', 'note.update'], true)) $requestLimit = 5 * 1024 * 1024;
     if ($action !== 'backup.import' && strlen($raw) > $requestLimit) {
         respond(['error' => 'La solicitud es demasiado grande.'], 413);
         return;
@@ -100,6 +103,7 @@ try {
             'tasks' => [],
             'categories' => validatedCategories($backup['categories'] ?? defaultCategories()),
             'scripts' => validatedScripts(array_key_exists('scripts', $backup) ? $backup['scripts'] : $data['scripts']),
+            'notes' => validatedNotes(array_key_exists('notes', $backup) ? $backup['notes'] : $data['notes']),
         ];
         $ids = [];
         foreach ($backup['tasks'] as $number => $item) {
@@ -130,6 +134,40 @@ try {
             ];
         }
         $data = $imported;
+    } elseif (in_array($action, ['note.create', 'note.update', 'note.delete'], true)) {
+        $index = null;
+        if ($action !== 'note.create') {
+            $id = field($input, 'id', 64);
+            foreach ($data['notes'] as $key => $note) {
+                if ($note['id'] === $id) {
+                    $index = $key;
+                    break;
+                }
+            }
+            if ($index === null) {
+                respond(['error' => 'Esta nota ya no existe. Recarga la página.'], 404);
+                return;
+            }
+        }
+        if ($action === 'note.delete') {
+            if (($input['confirmed'] ?? false) !== true) {
+                throw new InvalidArgumentException('Confirma la eliminación de la nota.');
+            }
+            array_splice($data['notes'], $index, 1);
+        } else {
+            if ($action === 'note.create' && count($data['notes']) >= 1000) {
+                throw new InvalidArgumentException('Se admite un máximo de 1000 notas.');
+            }
+            $note = [
+                'id' => $action === 'note.create' ? bin2hex(random_bytes(12)) : $data['notes'][$index]['id'],
+                ...validatedNote($input),
+            ];
+            if ($action === 'note.create') {
+                $data['notes'][] = $note;
+            } else {
+                $data['notes'][$index] = $note;
+            }
+        }
     } elseif (in_array($action, ['script.create', 'script.update', 'script.delete', 'script.favorite'], true)) {
         $index = null;
         if ($action !== 'script.create') {
@@ -266,6 +304,9 @@ try {
     }
     $data['updatedAt'] = gmdate('c');
     $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    if (in_array($action, ['note.create', 'note.update', 'backup.import'], true) && strlen($json) > 20 * 1024 * 1024) {
+        throw new InvalidArgumentException('El JSON supera los 20 MB. Reduce las capturas o elimina notas que ya no necesites.');
+    }
     $temporary = tempnam($directory, '.reportes-');
     if ($temporary === false || file_put_contents($temporary, $json) !== strlen($json) || !rename($temporary, $file)) {
         throw new RuntimeException('No se pudieron guardar los cambios.');

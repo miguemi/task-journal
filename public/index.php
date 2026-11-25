@@ -29,6 +29,7 @@ header('X-Content-Type-Options: nosniff');
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5/colors/properties.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="assets/script-highlighting.js" defer></script>
+    <script src="assets/notes.js" defer></script>
     <script src="assets/app.js" defer></script>
 </head>
 <body class="min-h-screen bg-base-200 text-sm text-base-content">
@@ -40,7 +41,7 @@ header('X-Content-Type-Options: nosniff');
                 <li><button class="menu-active" id="nav-week"><span aria-hidden="true">▦</span> Mi semana</button></li>
                 <li><button id="nav-history"><span aria-hidden="true">▤</span> Historial de reportes</button></li>
                 <li><button id="nav-scripts"><span aria-hidden="true">⌘</span> Mis scripts</button></li>
-                <li><button id="nav-categories">Categorías</button></li>
+                <li><button id="nav-notes"><span aria-hidden="true">▧</span> Notas de incidencias</button></li>
                 </ul>
             </nav>
             <div class="mt-auto flex flex-col gap-2">
@@ -52,7 +53,7 @@ header('X-Content-Type-Options: nosniff');
 
         <main class="min-w-0 flex-1 px-4 lg:ml-56 lg:px-8">
             <header class="navbar flex-wrap gap-3 border-b border-base-300 px-0"><div class="breadcrumbs flex-1 text-sm"><ul><li class="text-base-content/60">Mi espacio</li><li id="breadcrumb-current">Reporte semanal</li></ul></div><div class="flex flex-wrap items-center gap-3"><span class="text-xs text-base-content/60" id="storage-status" role="status">Guardado en JSON</span><button class="btn btn-sm" id="theme-toggle" type="button" aria-pressed="false">Modo oscuro</button></div></header>
-            <section class="flex flex-wrap items-center justify-between gap-4 py-6"><div><h1 class="text-sm font-semibold" id="page-title">Reporte semanal</h1><p class="mt-1 text-base-content/60" id="page-description" hidden></p></div><div class="flex flex-wrap gap-3"><button class="btn btn-primary btn-sm" id="add-task-top"><span aria-hidden="true">＋</span> Nueva tarea</button><button class="btn btn-info btn-sm" id="export-pdf"><svg class="size-4 shrink-0" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Report PDF</button></div></section>
+            <section class="flex flex-wrap items-center justify-between gap-4 py-6"><div><h1 class="text-sm font-semibold" id="page-title">Reporte semanal</h1><p class="mt-1 text-base-content/60" id="page-description" hidden></p></div><div class="flex flex-wrap gap-3"><button class="btn btn-primary btn-sm" id="add-task-top"><span aria-hidden="true">＋</span> Nueva tarea</button><button class="btn btn-success btn-sm" id="nav-categories">Categorías</button><button class="btn btn-info btn-sm" id="export-pdf"><svg class="size-4 shrink-0" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg> Report PDF</button></div></section>
 
             <section id="week-view">
                 <div class="mb-6 flex flex-wrap items-center gap-2"><button class="btn btn-ghost btn-square btn-sm" id="previous-week" aria-label="Semana anterior">‹</button><strong class="min-w-0 text-sm font-medium" id="week-range"></strong><button class="btn btn-ghost btn-square btn-sm" id="next-week" aria-label="Semana siguiente">›</button><button class="btn btn-ghost btn-sm" id="current-week">Esta semana</button></div>
@@ -73,8 +74,21 @@ header('X-Content-Type-Options: nosniff');
                     <button class="btn btn-sm" id="script-favorites" aria-pressed="false">☆ Favoritos</button>
                     <span class="text-xs text-base-content/60" id="script-count" role="status"></span>
                 </div>
-                <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" id="script-list" aria-live="polite"></div>
+                <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100" id="script-table-container" hidden>
+                    <table class="table table-zebra table-sm">
+                        <caption class="sr-only">Listado de scripts por lenguaje</caption>
+                        <thead><tr><th scope="col"><span class="sr-only">Favorito</span></th><th scope="col">Script</th><th class="text-center" scope="col">Para qué sirve</th><th class="text-right" scope="col">Acciones</th></tr></thead>
+                        <tbody id="script-list" aria-live="polite"></tbody>
+                    </table>
+                </div>
                 <p class="mt-5 text-xs text-base-content/60">Solo almacenamiento: aquí no se ejecuta código. Evita guardar contraseñas, tokens o claves privadas.</p>
+            </section>
+            <section id="notes-view" hidden>
+                <div class="mb-5 flex flex-wrap items-center gap-3">
+                    <label class="input input-sm w-full sm:max-w-sm"><span aria-hidden="true">⌕</span><input id="note-search" type="search" placeholder="Buscar incidencia o solución…" aria-label="Buscar notas"></label>
+                    <span class="text-xs text-base-content/60" id="note-count" role="status"></span>
+                </div>
+                <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" id="note-list" aria-live="polite"></div>
             </section>
             <footer class="mt-8 flex flex-wrap justify-between gap-3 border-t border-base-300 py-4 text-xs text-base-content/60"><span>Datos locales · JSON</span><span id="footer-profile">Bitácora</span></footer>
         </main>
@@ -104,7 +118,7 @@ header('X-Content-Type-Options: nosniff');
         <div class="modal-box text-sm">
             <form id="import-form">
                 <div class="mb-4 flex items-center justify-between gap-4"><h2 class="font-semibold">Importar respaldo</h2><button type="button" class="btn btn-ghost btn-circle btn-sm" data-close-dialog aria-label="Cerrar">✕</button></div>
-                <label class="mb-2 block" for="import-file">Selecciona tu respaldo JSON (máximo 5 MB)</label>
+                <label class="mb-2 block" for="import-file">Selecciona tu respaldo JSON (máximo 20 MB)</label>
                 <input class="file-input file-input-sm w-full" type="file" id="import-file" accept=".json,application/json" required>
                 <p class="alert mt-4 block text-sm" id="import-preview" role="status" hidden></p>
                 <label class="mt-4 flex items-start gap-3"><input class="checkbox checkbox-sm shrink-0" type="checkbox" id="import-confirm" required><span>Confirmo que quiero reemplazar mis datos actuales por los de este respaldo.</span></label>
@@ -166,6 +180,43 @@ header('X-Content-Type-Options: nosniff');
     </dialog>
     <dialog id="script-delete-dialog" class="modal">
         <div class="modal-box text-sm"><h2 class="font-semibold">¿Eliminar este script?</h2><p class="mt-3 text-base-content/60" id="script-delete-description"></p><p class="mt-2 text-error empty:hidden" id="script-delete-error" role="alert"></p><div class="modal-action flex-wrap gap-2"><button class="btn btn-ghost btn-sm" data-close-dialog>Cancelar</button><button class="btn btn-error btn-sm" id="confirm-script-delete">Eliminar script</button></div></div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+    <dialog id="note-dialog" class="modal">
+        <div class="modal-box max-w-4xl text-sm">
+            <form id="note-form">
+                <div class="mb-4 flex items-start justify-between gap-4"><h2 class="font-semibold" id="note-dialog-title">Nueva nota</h2><button type="button" class="btn btn-ghost btn-circle btn-sm" data-close-dialog aria-label="Cerrar">✕</button></div>
+                <input type="hidden" name="id">
+                <label class="mb-2 block" for="note-title">Incidencia</label><input class="input w-full text-sm" id="note-title" name="title" maxlength="180" placeholder="Ej. Diseño de impresión de factura incorrecto" required>
+                <input type="hidden" name="commerce">
+                <input type="hidden" name="date">
+                <input type="hidden" name="status">
+                <label class="mt-4 mb-2 block" for="note-details">Detalle del problema / reporte recibido</label><textarea class="textarea w-full text-sm" id="note-details" name="details" rows="4" maxlength="6000" placeholder="Describe lo que sucede o pega el mensaje del usuario…" required></textarea>
+                <label class="mt-4 mb-2 block" for="note-steps">Solución y pasos a seguir</label><textarea class="textarea w-full text-sm" id="note-steps" name="steps" rows="7" maxlength="12000" placeholder="1. Verificar…&#10;2. Corregir…&#10;3. Validar el resultado…"></textarea>
+                <label class="mt-4 mb-2 block" for="note-images">Fotos o capturas</label><input class="file-input file-input-sm w-full" id="note-images" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+                <p class="mt-2 text-xs text-base-content/60">Hasta 3 imágenes JPG, PNG o WebP (5 MB por archivo original). Se optimizan y guardan dentro del JSON local. También puedes pegar una captura con Ctrl+V.</p>
+                <div class="mt-3 grid gap-3 sm:grid-cols-3" id="note-image-previews"></div>
+                <label class="mt-4 mb-2 block" for="note-tags">Etiquetas</label><input class="input w-full text-sm" id="note-tags" name="tags" maxlength="200" placeholder="facturación, impresión, diseño">
+                <p class="mt-3 text-error empty:hidden" id="note-error" role="alert"></p>
+                <div class="modal-action flex-wrap gap-2"><button type="button" class="btn btn-ghost btn-sm" data-close-dialog>Cancelar</button><button class="btn btn-primary btn-sm" id="note-submit" type="submit">Guardar nota</button></div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+    <dialog id="note-detail-dialog" class="modal">
+        <div class="modal-box max-w-4xl text-sm">
+            <div class="mb-4 flex items-start justify-between gap-4"><h2 class="break-words font-semibold" id="note-detail-title"></h2><button type="button" class="btn btn-ghost btn-circle btn-sm shrink-0" data-close-dialog aria-label="Cerrar">✕</button></div>
+            <div id="note-detail-content"></div>
+            <div class="modal-action"><button class="btn btn-ghost btn-sm" data-close-dialog>Cerrar</button><button class="btn btn-primary btn-sm" id="note-detail-edit">Editar nota</button></div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+    <dialog id="note-image-dialog" class="modal">
+        <div class="modal-box max-w-6xl"><div class="mb-3 flex items-center justify-between gap-3"><h2 class="break-all text-sm" id="note-image-title"></h2><button class="btn btn-ghost btn-circle btn-sm shrink-0" data-close-dialog aria-label="Cerrar">✕</button></div><img class="max-h-[75vh] w-full object-contain" id="note-full-image" alt=""></div>
+        <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
+    </dialog>
+    <dialog id="note-delete-dialog" class="modal">
+        <div class="modal-box text-sm"><h2 class="font-semibold">¿Eliminar esta nota?</h2><p class="mt-3 text-base-content/60" id="note-delete-description"></p><p class="mt-2 text-error empty:hidden" id="note-delete-error" role="alert"></p><div class="modal-action flex-wrap gap-2"><button class="btn btn-ghost btn-sm" data-close-dialog>Cancelar</button><button class="btn btn-error btn-sm" id="confirm-note-delete">Eliminar nota</button></div></div>
         <form method="dialog" class="modal-backdrop"><button aria-label="Cerrar">cerrar</button></form>
     </dialog>
     <div class="toast toast-end" id="toast-region" role="status" aria-live="polite"></div>

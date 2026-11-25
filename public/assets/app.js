@@ -197,6 +197,7 @@ function render() {
     renderWeek();
     renderHistory();
     renderScripts();
+    renderNotes();
 }
 
 function renderWeek() {
@@ -240,20 +241,25 @@ function renderHistory() {
 }
 
 function showView(view) {
+    if (!['week', 'history', 'scripts', 'notes'].includes(view)) view = 'week';
     state.view = view;
+    try { sessionStorage.setItem('bitacora-view', view); } catch {}
     $('#week-view').hidden = view !== 'week';
     $('#history-view').hidden = view !== 'history';
     $('#scripts-view').hidden = view !== 'scripts';
+    $('#notes-view').hidden = view !== 'notes';
     $('#export-pdf').hidden = view !== 'week';
+    $('#nav-categories').hidden = view !== 'week';
     $('#nav-week').classList.toggle('menu-active', view === 'week');
     $('#nav-history').classList.toggle('menu-active', view === 'history');
     $('#nav-scripts').classList.toggle('menu-active', view === 'scripts');
-    const titles = { week: 'Reporte semanal', history: 'Historial de reportes', scripts: 'Mis scripts' };
+    $('#nav-notes').classList.toggle('menu-active', view === 'notes');
+    const titles = { week: 'Reporte semanal', history: 'Historial de reportes', scripts: 'Mis scripts', notes: 'Notas de incidencias' };
     $('#page-title').textContent = titles[view];
     $('#page-description').textContent = view === 'scripts' ? 'Tu biblioteca personal de soluciones cotidianas.' : 'Consulta tus semanas anteriores.';
-    $('#page-description').hidden = view === 'week';
+    $('#page-description').hidden = view === 'week' || view === 'notes';
     $('#breadcrumb-current').textContent = titles[view];
-    $('#add-task-top').textContent = view === 'scripts' ? '＋ Nuevo script' : '＋ Nueva tarea';
+    $('#add-task-top').textContent = view === 'notes' ? '＋ Nueva nota' : view === 'scripts' ? '＋ Nuevo script' : '＋ Nueva tarea';
 }
 
 function renderScripts() {
@@ -261,26 +267,24 @@ function renderScripts() {
     const visible = scripts.filter(script => (!scriptState.language || script.language === scriptState.language)
         && (!scriptState.favorites || script.favorite)
         && normalize(`${script.title} ${script.description} ${script.tags} ${script.code} ${scriptLanguages[script.language].name}`).includes(normalize(scriptState.search)))
-        .sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.title.localeCompare(b.title, 'es'));
+        .sort((a, b) => scriptLanguages[a.language].name.localeCompare(scriptLanguages[b.language].name, 'es')
+            || Number(b.favorite) - Number(a.favorite)
+            || a.title.localeCompare(b.title, 'es'));
     $('#script-count').textContent = `${visible.length} de ${scripts.length} scripts`;
+    $('#script-table-container').hidden = scripts.length === 0;
     $('#script-favorites').classList.toggle('btn-warning', scriptState.favorites);
     $('#script-favorites').setAttribute('aria-pressed', String(scriptState.favorites));
     $('#script-list').innerHTML = visible.map(script => {
         const id = escapeHtml(script.id);
-        const lines = script.code.split(/\r\n|\r|\n/);
-        const preview = lines.slice(0, 6).map(line => line.slice(0, 180)).join('\n');
-        const tags = script.tags.split(',').map(tag => tag.trim()).filter(Boolean);
-        return `<article class="card min-w-0 overflow-hidden border border-base-300 bg-base-100">
-            <div class="card-body gap-3 p-5">
-                <div class="flex items-center justify-between gap-2"><span class="badge badge-sm ${scriptLanguages[script.language].color}">${scriptLanguages[script.language].name}</span><button class="btn btn-ghost btn-square btn-sm ${script.favorite ? 'text-warning' : ''}" data-script-action="favorite" data-script-id="${id}" aria-label="${script.favorite ? 'Quitar de' : 'Añadir a'} favoritos: ${escapeHtml(script.title)}" aria-pressed="${script.favorite}">${script.favorite ? '★' : '☆'}</button></div>
-                <h3 class="break-words font-semibold">${escapeHtml(script.title)}</h3>
-                <p class="line-clamp-2 whitespace-pre-wrap break-words text-base-content/60">${escapeHtml(script.description || 'Sin notas. Tu código, listo para reutilizar.')}</p>
-                <div class="overflow-hidden rounded-box bg-slate-900 p-3 text-slate-200"><pre class="h-36 overflow-hidden font-mono text-xs leading-6" aria-label="Vista previa del código"><code>${highlightScript(preview, script.language)}</code></pre><div class="mt-2 border-t border-white/20 pt-2 text-xs text-slate-400">${lines.length} ${lines.length === 1 ? 'línea' : 'líneas'} · Vista previa</div></div>
-                <div class="flex flex-wrap gap-1">${tags.map(tag => `<span class="badge badge-ghost badge-sm h-auto whitespace-normal break-all">${escapeHtml(tag)}</span>`).join('')}</div>
-                <div class="mt-auto flex flex-wrap gap-2 pt-2"><button class="btn btn-primary btn-sm" data-script-action="copy" data-script-id="${id}">Copiar</button><button class="btn btn-sm" data-script-action="edit" data-script-id="${id}">Ver / Editar</button><button class="btn btn-sm btn-ghost" data-script-action="download" data-script-id="${id}">Descargar</button><button class="btn btn-xs btn-ghost" data-script-action="duplicate" data-script-id="${id}">Duplicar</button><button class="btn btn-xs btn-ghost text-error" data-script-action="delete" data-script-id="${id}">Eliminar</button></div>
-            </div>
-        </article>`;
-    }).join('') || (scripts.length ? '<div class="card col-span-full items-center gap-3 border border-dashed border-base-300 bg-base-100 px-6 py-12 text-center"><h3 class="font-semibold">Ningún script coincide</h3><p class="text-base-content/60">Prueba otro lenguaje, etiqueta o palabra.</p><button class="btn btn-primary btn-sm" data-script-action="clear">Limpiar filtros</button></div>' : '');
+        return `<tr>
+            <td class="w-10 align-middle"><button class="btn btn-ghost btn-square btn-xs ${script.favorite ? 'text-warning' : ''}" data-script-action="favorite" data-script-id="${id}" aria-label="${script.favorite ? 'Quitar de' : 'Añadir a'} favoritos: ${escapeHtml(script.title)}" aria-pressed="${script.favorite}">${script.favorite ? '★' : '☆'}</button></td>
+            <td class="w-1/3 min-w-64 align-middle"><div class="max-w-lg">
+                <div class="flex flex-wrap items-center gap-2"><h3 class="break-words font-semibold">${escapeHtml(script.title)}</h3><span class="badge badge-sm ${scriptLanguages[script.language].color}">${scriptLanguages[script.language].name}</span></div>
+            </div></td>
+            <td class="w-1/3 min-w-56 text-center align-middle"><p class="line-clamp-2 whitespace-pre-wrap break-words text-xs text-base-content/60">${escapeHtml(script.description)}</p></td>
+            <td class="align-middle"><div class="flex justify-end gap-1 whitespace-nowrap"><button class="btn btn-primary btn-xs" data-script-action="copy" data-script-id="${id}">Copiar</button><button class="btn btn-xs" data-script-action="edit" data-script-id="${id}">Ver / Editar</button><button class="btn btn-xs btn-ghost text-error" data-script-action="delete" data-script-id="${id}">Eliminar</button></div></td>
+        </tr>`;
+    }).join('') || (scripts.length ? '<tr><td colspan="4"><div class="space-y-3 p-6 text-center"><h3 class="font-semibold">Ningún script coincide</h3><p class="text-base-content/60">Prueba otro lenguaje, etiqueta o palabra.</p><button class="btn btn-primary btn-sm" data-script-action="clear">Limpiar filtros</button></div></td></tr>' : '');
 }
 
 function openScript(script = null, duplicate = false) {
@@ -413,13 +417,18 @@ $('#apply-ai').addEventListener('click', () => {
     toast('Propuesta aplicada. Pulsa «Guardar tarea» para conservarla.');
 });
 
-$('#add-task-top').addEventListener('click', () => state.view === 'scripts' ? openScript() : openTask(defaultTaskDate()));
+$('#add-task-top').addEventListener('click', () => {
+    if (state.view === 'notes') openNote();
+    else if (state.view === 'scripts') openScript();
+    else openTask(defaultTaskDate());
+});
 $('#previous-week').addEventListener('click', () => changeWeek(addDays(state.week, -7)));
 $('#next-week').addEventListener('click', () => changeWeek(addDays(state.week, 7)));
 $('#current-week').addEventListener('click', () => changeWeek(new Date()));
 $('#nav-week').addEventListener('click', () => showView('week'));
 $('#nav-history').addEventListener('click', () => showView('history'));
 $('#nav-scripts').addEventListener('click', () => showView('scripts'));
+initializeNotes();
 $('#script-search').addEventListener('input', event => { scriptState.search = event.target.value.trim(); renderScripts(); });
 $('#script-language-filter').addEventListener('change', event => { scriptState.language = event.target.value; renderScripts(); });
 $('#script-favorites').addEventListener('click', () => { scriptState.favorites = !scriptState.favorites; renderScripts(); });
@@ -690,8 +699,8 @@ $('#import-file').addEventListener('change', async event => {
     $('#import-preview').hidden = true;
     updateImportButton();
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-        $('#import-error').textContent = 'El respaldo supera el límite de 5 MB.';
+    if (file.size > 20 * 1024 * 1024) {
+        $('#import-error').textContent = 'El respaldo supera el límite de 20 MB.';
         return;
     }
     try {
@@ -705,11 +714,17 @@ $('#import-file').addEventListener('change', async event => {
         if (backup.scripts !== undefined && (!Array.isArray(backup.scripts) || backup.scripts.length > 1000)) {
             throw new Error('El respaldo debe contener una lista de hasta 1000 scripts.');
         }
+        if (backup.notes !== undefined && (!Array.isArray(backup.notes) || backup.notes.length > 1000)) {
+            throw new Error('El respaldo debe contener una lista de hasta 1000 notas.');
+        }
         pendingImport = backup;
         const scriptNotice = backup.scripts === undefined
             ? 'Es un respaldo anterior: tus scripts actuales se conservarán.'
             : `${backup.scripts.length} scripts en el respaldo; se reemplazarán tus ${state.data.scripts.length} scripts actuales.`;
-        $('#import-preview').textContent = `${backup.profile.name} · ${backup.tasks.length} tareas en el respaldo. Actualmente tienes ${state.data.tasks.length} tareas que serán reemplazadas. ${scriptNotice}`;
+        const noteNotice = backup.notes === undefined
+            ? 'El respaldo no contiene notas: tus notas actuales se conservarán.'
+            : `${backup.notes.length} notas con sus capturas en el respaldo; se reemplazarán tus ${state.data.notes.length} notas actuales.`;
+        $('#import-preview').textContent = `${backup.profile.name} · ${backup.tasks.length} tareas en el respaldo. Actualmente tienes ${state.data.tasks.length} tareas que serán reemplazadas. ${scriptNotice} ${noteNotice}`;
         $('#import-preview').hidden = false;
     } catch (error) {
         if (input.files[0] !== file) return;
@@ -1000,11 +1015,14 @@ $('#print-report').addEventListener('click', () => {
 window.addEventListener('resize', fitPreview);
 
 async function initialize() {
-    const requiresData = ['#add-task-top', '#previous-week', '#next-week', '#current-week', '#export-pdf', '#nav-history', '#nav-scripts', '#nav-import', '#nav-categories', '#profile-shortcut', '#backup-button', '#task-search', '#script-search', '#script-language-filter', '#script-favorites'];
+    const requiresData = ['#add-task-top', '#previous-week', '#next-week', '#current-week', '#export-pdf', '#nav-history', '#nav-scripts', '#nav-notes', '#nav-import', '#nav-categories', '#profile-shortcut', '#backup-button', '#task-search', '#script-search', '#script-language-filter', '#script-favorites', '#note-search'];
     requiresData.forEach(selector => { $(selector).disabled = true; });
     try {
         state.data = await request();
         render();
+        let savedView = 'week';
+        try { savedView = sessionStorage.getItem('bitacora-view') || 'week'; } catch {}
+        showView(savedView);
         storageStatus('Guardado en JSON');
     } catch (error) {
         $('#task-list').innerHTML = `<div class="card items-center gap-3 border border-base-300 bg-base-100 p-8 text-center"><h3 class="font-medium">No se pudo abrir tu bitácora</h3><p class="text-base-content/60">${escapeHtml(error.message)}</p><button class="btn btn-sm" id="retry-load">Volver a intentar</button></div>`;
